@@ -1,121 +1,60 @@
-git clone git@github.com:timengelbracht/hoi-dataset-tools.git
-cd hoi-dataset-tools
+# Hoi! Dataset Tools
 
+Tooling to **record** and **process** the Hoi! dataset of human–object interactions,
+captured with multiple synchronized sensors (Project Aria glasses, a handheld
+UMI GoPro gripper, a force/torque gripper, iPhone RGB-D, and Leica laser scans)
+across real environments, all registered into a shared world frame.
 
-# recording docker build
-mkdir source/recordings/
-cd source/recordings/
-docker compose build
+This repo has two independent parts (plus shared calibration):
 
-# record data in rosbag
-docker compose up -d
-docker exec -it spot_aria_gripper_recorder /bin/bash
-rosparam set use_sim_time false
-roslaunch witmotion_ros wt901.launch 
+| part | what it is | start here |
+|---|---|---|
+| **[`data_processing/`](data_processing/README.md)** | Python package + Docker to turn raw recordings into the processed/release dataset (extract → time-align → spatially register → split interactions → package). | to **use the data** or **reproduce processing** |
+| **[`data_recording/`](data_recording/README.md)** | The gripper capture rig — record your own data on a Jetson (ZED, force/torque, tactile, motor). | to **record data** |
+| **[`calibration/`](calibration/README.md)** | Stock open-source camera/IMU calibration (Kalibr + allan_variance_ros) that produces the calib the pipeline consumes. | for **camera/IMU calibration** |
 
-new terminal
-docker exec -it spot_aria_gripper_recorder /bin/bash
-rosbag record -o /bags/imu_data /imu
+## Quickstart
 
+**Process a recording location** (inside the `data_processing` dev container — see
+[its README](data_processing/README.md) for setup):
+```bash
+python -m hoi.data_tools.extraction_pipeline \
+    --config data_processing/configs/extraction_example.yaml
+```
+The config picks the location, interaction indices, gripper color, and which
+stages to run. Package a processed location for release with:
+```bash
+python -m hoi.data_tools.package_dataset_release <extracted_loc> <release_loc>
+```
 
-# get imu noise level
-record a rosbag for at least 3 hours etc use Allan Variance ROS https://github.com/ori-drs/allan_variance_ros
-needed for kalibr (camera/imu calibration)
-rosrun allan_variance_ros allan_variance /bags/cooked_rosbag.bag /hoi-dataset-tools/config/imu_noise/witmotion_imu.yaml
+**Record your own data** (on a Jetson — see [the recording README](data_recording/README.md)):
+```bash
+cd data_recording/docker/recording
+# edit hardware.env for your rig (DIGIT ids, USB serials, tick limits, F/T bus)
+docker compose build recording_gripper_nano
+./start_recording_interface_gripper.sh <env_name>
+```
 
-rosrun allan_variance_ros allan_variance /bags/cooked_rosbag.bag /hoi-dataset-tools/config/imu_noise/ witmotion_imu.yaml
-rosrun allan_variance_ros allan_variance /bags/cooked_rosbag.bag /hoi-dataset-tools/config/imu_noise/witmotion_imu.yaml
+## Processing pipeline at a glance
+1. **Extract** raw streams (Aria VRS+MPS, UMI GoPro, gripper ZED/F-T bag, iPhone RGB-D, Leica) — `data_loader_*`, `data_indexer`.
+2. **Time-align** the streams within a recording — `time_align_extracted_single_recording` (`Datasyncer`).
+3. **Spatially register** every stream into the shared Leica world frame — `spatial_registrator` (hloc/InLoc anchors; GTSAM pose-graph over ORB-SLAM3 for UMI).
+4. **Split interactions** into per-interaction windows (+ some manual annotation).
+5. **Package** for release — `package_dataset_release`.
 
+See [`data_processing/README.md`](data_processing/README.md) for the module map,
+expected raw layout, Aria MPS credentials, and the odometry container.
 
-create imu yaml
-witmotion.yaml
-rosbag record --duration=60s -o /bags/test /imu
+## Requirements
+Everything runs in Docker (per-part Dockerfiles); no host installs beyond Docker
++ the NVIDIA container runtime. The `data_processing` package pins its
+dependencies in `data_processing/docker/aria/Dockerfile`.
 
+## Status
+Research codebase, released so the community can see and use the pipeline. It
+works end-to-end, but some cleanup is still in progress — see [`TODO.md`](TODO.md)
+for known open items (e.g. the evaluation-tools cleanup and some machine-specific
+paths in Docker mounts). Issues and PRs welcome.
 
-note: imu polling rate set via software
-
-# IMU noise stuff
-
-# Lenai Gripper setup
-
-# motor
-dynamixel_workbench_controllers/config/basic.yaml ID=1
-min/max position [1615,2536]
-src/dynamixel-workbench/dynamixel_workbench_controllers/config/basic.yaml
-pan:
-  ID: 1
-  Return_Delay_Time: 0
-  Operating_Mode: 16
-  Min_Position_Limit: 1630
-  Max_Position_Limit: 2500
-
-command line setting
-rosservice call /dynamixel_workbench/dynamixel_command "{command: '', id: 1, addr_name: 'Goal_Position', value: 2048}"
-
-# publish motor topics
-roslaunch dynamixel_workbench_controllers dynamixel_controllers.launch
-roslaunch dynamixel_sdk_examples read_write.launch dxl_port:=/dev/ttyUSB0 dxl_baud:=57600 dxl_id:=1
-
-# IMU camera calib
-todo kalibr setup
-
-
-# trigger setup
-#calibration
-source/arduino/calibration
-Place a known weight (e.g., 1 kg) on the load cell and record the reading.
-Compute the scale factor:
-If 1kg gives 10,000 raw reading, then scale factor = 10000/1kg = 10000.
-Use this value in the next code.
-
-# run ros/arduino recording
-flash force_reading_ros onto arduino -> publishes /gripper_force_trigger
-rosrun rosserial_python serial_node.py /dev/ttyUSB1 _baud:=57600
-
-# run throslaunch gripper_force_controller gripper_control.launche motor controller (arduino needs to be running)
-roslaunch gripper_force_controller gripper_control.launch
-
-
-# open vins odometry
-cd data_processing/docker/odometry
-docker compose build
-docker compose up -d
-docker exec -it open_vins /bin/bash
-
-roslaunch ov_msckf subscribe.launch config:=zedm bag:=/bags/zedm/cam_left_right_imu_calib.bag
-
-
-# open zed ros dev
-hoi-dataset-tools/zed_open_capture_ros
-
-docker run -it --rm \
-  --name zed_open_capture_dev \
-  --privileged \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  -e DISPLAY=$DISPLAY \
-  -v /home/Documents/hoi-dataset-tools/zed_open_capture_ros:/catkin_ws/src \
-  zed_open_capture_dev
-
-
-# gelsight digit
-
-docker run -it --rm \
-  --privileged \
-  --device /dev/bus/usb \
-  -v /dev/bus/usb:/dev/bus/usb \
-  --group-add plugdev \
-  your_digit_ros_image
-
-
-apply udev rules on host
-
-check out ros_noetic/dev_container/.devcontainer/devcontainer.json for run args, permissions, udev etc
-
-roslaunch gelsight_digit_ros gelsight_digit_node.launch device_id:=D21237 topic_name:=/digit/left/image_raw
-
-
-
-cvg@cvg-System-Product-Name:~/Documents/hoi-dataset-tools/data_processing/docker/odometry$ ls /dev/serial/by-id/
-usb-FTDI_FT232R_USB_UART_A10K4UM5-if00-port0
-usb-FTDI_USB__-__Serial_Converter_FT89FCUV-if00-port0
-
+## License & citation
+TODO: add a license and citation before wide distribution.
