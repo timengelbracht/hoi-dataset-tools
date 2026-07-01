@@ -53,12 +53,39 @@ not used by the current pipeline** — only ORB-SLAM3 is invoked. They can be
 removed if we don't intend to revisit inertial odometry.
 
 ## Environment
-The package is developed and run inside the **aria dev container**
-(`docker/aria/`). Open `docker/aria/.devcontainer` in VS Code ("Reopen in
-Container"), or build via `docker/aria/docker-compose.yml`. The container's
-`postCreateCommand` runs `pip install -e /exchange/hoi-dataset-tools`, so the
-`hoi` package is importable on start. All Python dependencies are pinned in
-`docker/aria/Dockerfile`.
+The package runs inside the **aria dev container** (`docker/aria/`). Two ways to
+launch it:
+
+- **VS Code dev container** (recommended): open `docker/aria/.devcontainer` and
+  "Reopen in Container". Its `postCreateCommand` runs `pip install -e <repo>`, so
+  `hoi` is importable on start.
+- **docker compose**:
+  ```bash
+  cd data_processing/docker/aria
+  docker compose up -d aria_dev
+  docker exec -it aria_dev bash
+  pip install -e /path/to/hoi-dataset-tools   # once, if not already
+  ```
+
+All Python dependencies are pinned in `docker/aria/Dockerfile`.
+
+### What to mount (edit for your machine)
+The mount sources in `.devcontainer/devcontainer.json` and `docker-compose.yml`
+point at the original authors' paths — **change them to yours**. What the
+container actually needs:
+
+| mount | why |
+|---|---|
+| your **dataset root** → `/data` | the pipeline reads/writes here; the run config's `base_path` points at it (e.g. `base_path: /data/ikea_recordings`) |
+| this **repo** → the workspace | so the `hoi` package is importable (`pip install -e`); the dev container mounts it as `workspaceFolder` |
+| **GPU** — `--gpus all` / nvidia runtime | torch + CUDA Open3D |
+| **`/var/run/docker.sock`** | the `umi` stage launches the ORB-SLAM container *from inside* this container, so it needs the host Docker socket |
+| **X11** — `/tmp/.X11-unix` + `DISPLAY` | optional; only for the Open3D visualization windows |
+
+For headless processing you only need the **dataset mount**, the **GPU**, and —
+for the UMI stage — the **docker socket**. The `/dev`, udev and Vulkan mounts in
+the shipped configs are for live-device / GUI use and aren't required to process
+existing recordings.
 
 ## Credentials (Aria MPS)
 The `mps` stage of the extraction pipeline requests Aria Machine Perception

@@ -288,8 +288,8 @@ def run_pipeline_gripper_recording(interaction_index: str,
             iphone_data.extract_keyframes()
             spatial_registrator = SpatialRegistrator(loader_map=leica_data, loader_query=iphone_data)
             spatial_registrator.visual_registration_inloc(force=False)
-            spatial_registrator.vis_2d_inloc()
-            spatial_registrator.visual_registration_viz_ply()
+            # spatial_registrator.vis_2d_inloc()
+            # spatial_registrator.visual_registration_viz_ply()
             # TODO apply trafo to all poses/csv
             ret = spatial_registrator.compute_transform_world_iphone()
             if ret is not None:
