@@ -15,9 +15,9 @@ This repo has two independent parts (plus shared calibration):
 
 ## Quickstart
 
-**Process a recording location.** Bring up the `data_processing` **VS Code dev
-container** (`docker/aria/.devcontainer`), **editing the mounts for your dataset
-and GPU first** — see
+**Process a recording location.** Bring up the `data_processing` dev container
+(`docker/aria/` — VS Code dev container, or `docker compose up -d aria_dev`),
+**editing the mounts for your dataset and GPU first** — see
 [what the dev container mounts](data_processing/README.md#what-the-dev-container-mounts-edit-sources-for-your-machine).
 Then, inside the container:
 ```bash

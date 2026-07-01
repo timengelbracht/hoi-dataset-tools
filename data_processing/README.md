@@ -53,15 +53,20 @@ not used by the current pipeline** — only ORB-SLAM3 is invoked. They can be
 removed if we don't intend to revisit inertial odometry.
 
 ## Environment
-The package runs inside the **aria dev container** (`docker/aria/`), launched as
-a **VS Code dev container**: open `docker/aria/.devcontainer` and "Reopen in
-Container". It builds `docker/aria/Dockerfile` and its `postCreateCommand` runs
-`pip install -e <repo>`, so `hoi` is importable on start. All Python
-dependencies are pinned in `docker/aria/Dockerfile`.
+The package runs inside the **aria dev container** (`docker/aria/`). Launch it
+either way — both build `docker/aria/Dockerfile` with the same mounts/env and
+install the package editable so `hoi` is importable:
 
-> **Note:** `docker/aria/docker-compose.yml` is a bare/minimal service (same
-> Dockerfile, but fewer mounts and no auto-install) and is **not kept in sync**
-> with the dev container. Use the VS Code dev container for the full setup.
+- **VS Code dev container** (`docker/aria/.devcontainer`) — "Reopen in Container".
+- **docker compose**:
+  ```bash
+  cd data_processing/docker/aria && docker compose up -d aria_dev && docker exec -it aria_dev bash
+  ```
+
+All Python dependencies are pinned in `docker/aria/Dockerfile`.
+
+> `docker-compose.yml` mirrors `.devcontainer/devcontainer.json`, which is the
+> source of truth — if you change the devcontainer, update the compose file.
 
 ### What the dev container mounts (edit sources for your machine)
 The mount sources in `.devcontainer/devcontainer.json` point at the original

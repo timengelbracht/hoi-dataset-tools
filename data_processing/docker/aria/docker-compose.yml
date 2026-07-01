@@ -1,38 +1,55 @@
+# Mirror of .devcontainer/devcontainer.json (which is the SOURCE OF TRUTH).
+# If you change the devcontainer, update this file to match.
+# Edit the machine-specific mount SOURCES (marked below) for your host.
 services:
   aria_dev:
-    build: 
-      context: . 
+    build:
+      context: .
       dockerfile: Dockerfile
     container_name: aria_dev
-    network_mode: "host"
-    privileged: true   
-    group_add:
+    network_mode: "host"        # devcontainer runArgs: --net=host
+    privileged: true            # devcontainer runArgs: --privileged
+    group_add:                  # devcontainer runArgs: --group-add
       - plugdev
       - video
-      - dialout
-    deploy:
+    deploy:                     # devcontainer runArgs: --gpus=all
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    environment:
+    working_dir: /exchange      # devcontainer: workspaceFolder
+    environment:                # devcontainer: containerEnv + --env runArgs
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-      - XDG_RUNTIME_DIR=/tmp
-      - WAYLAND_DISPLAY
+      - QT_QPA_PLATFORM=xcb
+      - MPLBACKEND=
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYOPENGL_PLATFORM=egl
+      - EGL_PLATFORM=surfaceless
+      - EGL_LOG_LEVEL=debug
+      - MESA_GL_VERSION_OVERRIDE=4.5
+      - VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json
+      - VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json
       - __GLX_VENDOR_LIBRARY_NAME=nvidia
-      - UDEV=1
-      - ROS_MASTER_URI=http://localhost:11311
-      - ROS_IP=127.0.0.1
-    volumes:
-      - /media/cvg/T7 Shield/spot-aria-recordings:/bags  
-      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
-      - "/run/udev:/run/udev:ro"
-      - "/dev/bus/usb:/dev/bus/usb:ro"
-      - "/dev/serial/by-id:/dev/serial/by-id"
+      - XAUTHORITY=/tmp/.Xauthority
+    volumes:                    # devcontainer: mounts
+      # --- machine-specific: EDIT these sources for your host ---
+      - "/home/cvg-robotics/tim_ws:/exchange"        # workspace (repo at /exchange/hoi-dataset-tools)
+      - "/media/cvg-robotics/Extreme SSD1:/data"     # dataset root (run config base_path -> /data/...)
+      # --- host integration (usually keep as-is) ---
+      - "/var/run/docker.sock:/var/run/docker.sock"  # umi stage launches the ORB-SLAM container
+      - "/tmp/.X11-unix:/tmp/.X11-unix"
+      - "/home/cvg-robotics/.Xauthority:/tmp/.Xauthority:ro"
       - "/dev:/dev"
+      - "/dev/bus/usb:/dev/bus/usb"
+      - "/run/udev:/run/udev:ro"
+      - "/usr/share/glvnd/egl_vendor.d:/usr/share/glvnd/egl_vendor.d:ro"
+      - "/usr/share/vulkan:/usr/share/vulkan:ro"
+      - "/etc/vulkan:/etc/vulkan:ro"
     stdin_open: true
     tty: true
-
+    # devcontainer: postCreateCommand — install the package (editable), then shell.
+    command: ["bash", "-lc", "pip install -e /exchange/hoi-dataset-tools || echo '[warn] editable install failed — is the repo mounted at /exchange/hoi-dataset-tools?'; exec bash"]
