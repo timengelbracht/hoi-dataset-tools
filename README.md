@@ -1,5 +1,11 @@
 # hoi-dataset-tools
 
+<p align="center">
+  <a href="https://timengelbracht.github.io/Hoi-Dataset-Website/">
+    <img src="https://timengelbracht.github.io/Hoi-Dataset-Website/static/images/LogoHoi.png" alt="Hoi! logo" width="220">
+  </a>
+</p>
+
 Code accompanying the CVPR 2026 paper
 **[Hoi! - A Multimodal Dataset for Force-Grounded, Cross-View Articulated Manipulation](https://arxiv.org/abs/2512.04884)**.
 
