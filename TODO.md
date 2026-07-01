@@ -7,6 +7,21 @@
 - Data-dir references literally named `hej` in eval output paths.
 - Decide which eval scripts ship publicly vs. stay internal.
 
+## Raw-free capability (run downstream steps on extracted-only data)
+- [x] `index_from: extracted` config option for discovery.
+- [x] Guard `UmiData.extract_umi_meta_data()` to skip the raw/umi_meta copy when
+      the extracted calib+mask already exist.
+- [ ] **Aria: verify no `self.provider`-when-`None` deref.** `load_provider()`
+      degrades gracefully (warns, leaves `self.provider = None`) and
+      `get_calibration()` returns the cached `extracted/calib/calib.json`, so
+      downstream registration should work raw-free. Confirm no downstream path
+      dereferences `self.provider` when the raw VRS is absent, and soften the
+      warning to read as "expected in extracted-only mode".
+- [ ] Gripper: give a clear error when both raw and extracted calib are missing
+      (currently `shutil.copytree` crashes on the missing raw source).
+- Note: the `extract_*` stages inherently need raw; raw-free applies only to
+  re-running time-align / spatial-register / package on already-extracted data.
+
 ## Other open items (from the release cleanup pass)
 - [ ] Delete dead dependency files: `data_processing/docker/aria/.devcontainer/Dockerfile`
       (unused duplicate nothing builds) and top-level `requirements.txt`

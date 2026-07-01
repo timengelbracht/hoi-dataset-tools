@@ -88,13 +88,25 @@ class UmiData:
         self.anonym_info: dict = {}
 
     def extract_umi_meta_data(self):
+        """Seed the per-recording calib + mask from raw/umi_meta.
+
+        Each extracted UMI recording carries its own calib/mask copy, so this
+        skips entirely when they already exist — letting the loader run on
+        extracted-only datasets (no raw/umi_meta required). raw is only read
+        when the extracted copies are missing (i.e. during a fresh extraction).
+        """
+        calib_dst = self.extraction_path / "calib" / "calib_pinhole-equi"
+        mask_dst = self.extraction_path / "calib" / "umi_mask.png"
+
+        # already seeded (extracted-only mode) → nothing to copy from raw
+        if calib_dst.is_dir() and any(calib_dst.iterdir()) and mask_dst.exists():
+            return
 
         # copy calib
         calibration_path = self.calibration_path
         if not calibration_path.exists():
             raise FileNotFoundError(f"[{self.logging_tag}] calib folder not found at {self.calibration_path}")
-        
-        calib_dst = self.extraction_path / "calib" / "calib_pinhole-equi" 
+
         ensure_dir(calib_dst)
 
         # copy all files from mask_path to mask_dst
@@ -105,8 +117,6 @@ class UmiData:
         # copy mask
         if not self.mask_path.exists():
             raise FileNotFoundError(f"[{self.logging_tag}] mask file not found at {self.mask_path}")
-        
-        mask_dst = self.extraction_path / "calib" /"umi_mask.png"
 
         if not mask_dst.exists():
             shutil.copy2(self.mask_path, mask_dst)
