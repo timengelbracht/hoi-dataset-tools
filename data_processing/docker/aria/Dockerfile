@@ -31,8 +31,9 @@ RUN pip install --no-cache-dir --ignore-installed blinker \
 # 2) GUI / dashboard first → pulls projectaria-tools ≥ 1.5.6a2 (e.g. 1.6.0)
 RUN pip install --no-cache-dir aria_studio
 
-# 3) Client SDK without deps (skip its pin to 1.5.2a1)
-RUN pip install --no-cache-dir --no-deps projectaria_client_sdk
+# 3) Client SDK without deps (skip its pin to 1.5.2a1). Pinned to the original
+#    working version; unpinned it drifted 2.3.0 -> 2.4.0 on rebuild.
+RUN pip install --no-cache-dir --no-deps projectaria_client_sdk==2.3.0
 
 
 # Install latest CMake (3.27+)
@@ -132,7 +133,7 @@ RUN apt-get update && apt-get install -y \
 
 # build + python bindings (single configure from repo root)
 RUN git clone https://github.com/borglab/gtsam.git /gtsam && \
-    cd /gtsam && git checkout 4.3.0 && \
+    cd /gtsam && \
     pip install pybind11_stubgen && \
     mkdir -p build && cd build && \
     cmake .. \

@@ -26,7 +26,7 @@
     "source=/home/cvg-robotics/tim_ws,target=/exchange,type=bind",
     "source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
     "source=/run/udev,target=/run/udev,type=bind,readonly",
-    "source=/media/cvg-robotics/Extreme SSD2,target=/data,type=bind",
+    "source=/media/cvg-robotics/Extreme SSD1,target=/data,type=bind",
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=/usr/share/glvnd/egl_vendor.d,target=/usr/share/glvnd/egl_vendor.d,type=bind,readonly",
     "source=/home/cvg-robotics/.Xauthority,target=/tmp/.Xauthority,type=bind,readonly",
@@ -54,5 +54,6 @@
   ],
   "remoteUser": "root",
   "workspaceFolder": "/exchange",
+  "postCreateCommand": "pip install -e /exchange/hoi-dataset-tools",
   "postStartCommand": "xauth list $DISPLAY | sed -e 's/^..../ffff/' | xargs -I{} sh -c 'echo \"{}\" | xauth merge -'"
 }
