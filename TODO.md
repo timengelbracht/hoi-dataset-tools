@@ -39,8 +39,8 @@
 
 ## Other open items (from the release cleanup pass)
 - [x] Removed stale top-level `requirements.txt` (unreferenced; pinned projectaria 1.5.7 vs actual 1.5.6).
-- [ ] Delete dead `data_processing/docker/aria/.devcontainer/Dockerfile`
-      (unused duplicate — devcontainer.json builds `../Dockerfile`, not this one).
+- [x] Removed dead `data_processing/docker/aria/.devcontainer/Dockerfile`
+      (unused duplicate — devcontainer.json builds `../Dockerfile`).
 - [ ] Keep/delete decision: `data_processing/src/hoi/data_tools/extract_raw_single_location.py`
       (standalone, possibly stale) and `data_processing/data_loader.py` (dead-code candidate).
 - [ ] Pin gtsam (currently builds master; the `4.3.0` tag never existed — use `4.2.2` /
