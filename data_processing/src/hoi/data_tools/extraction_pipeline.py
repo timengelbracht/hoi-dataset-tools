@@ -12,6 +12,8 @@ from typing import Dict, List, Sequence
 
 from pathlib import Path
 import os
+import argparse
+import yaml
 
 def run_pipeline_umi_recording(interaction_index: str, 
                                rec_location: str, 
@@ -619,101 +621,140 @@ def request_mps_for_aria_recordings_fors_single_location(rec_location: str,
 
     a = 0
 
-if __name__ == "__main__":
-    ################################################3
-    # recording location
-    ################################################3
-    rec_location = "kitchen_6"
-    base_path = Path(f"/data/ikea_recordings")
-    data_indexer = RecordingIndex(
-        os.path.join(str(base_path), "raw") 
+
+# ---------------------------------------------------------------------------
+# Config-driven CLI entry point
+# ---------------------------------------------------------------------------
+
+STAGES_ALL = ["mps", "leica", "hand", "gripper", "wrist", "umi"]
+
+
+def _resolve_docker_odometry(value: str) -> Path:
+    """Resolve the odometry docker dir; relative paths are taken from the repo root."""
+    p = Path(value)
+    if p.is_absolute():
+        return p
+    # extraction_pipeline.py: data_tools -> hoi -> src -> data_processing -> <repo root>
+    repo_root = Path(__file__).resolve().parents[4]
+    return repo_root / p
+
+
+def load_config(path: Path) -> dict:
+    """Load and validate a YAML run config."""
+    with open(path) as f:
+        cfg = yaml.safe_load(f)
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Config {path} is not a YAML mapping.")
+    missing = [k for k in ("base_path", "location", "interactions") if k not in cfg]
+    if missing:
+        raise ValueError(f"Config {path} missing required keys: {missing}")
+    return cfg
+
+
+def run_extraction(cfg: dict) -> None:
+    """Run the extraction pipeline for a single location from a config dict."""
+    base_path = Path(cfg["base_path"])
+    if not base_path.exists():
+        raise FileNotFoundError(f"base_path does not exist: {base_path}")
+
+    location = cfg["location"]
+    interactions = cfg["interactions"]
+    if isinstance(interactions, (str, int)):
+        interactions = [interactions]
+    interactions = [str(i) for i in interactions]
+
+    color = cfg.get("color", "blue")
+    if color not in ("blue", "yellow"):
+        raise ValueError(f"color must be 'blue' or 'yellow', got {color!r}")
+    visualize = bool(cfg.get("visualize", False))
+    mps_no_ui = bool(cfg.get("mps_no_ui", True))
+
+    stages = cfg.get("stages", STAGES_ALL)
+    unknown = [s for s in stages if s not in STAGES_ALL]
+    if unknown:
+        raise ValueError(f"Unknown stages {unknown}; valid stages: {STAGES_ALL}")
+
+    docker_odometry = _resolve_docker_odometry(
+        cfg.get("docker_odometry", "data_processing/docker/odometry")
     )
-    path_docker_root_odometry = Path("/exchange/hoi-dataset-tools/data_processing/docker/odometry")
-    # interaction_index = "1-6"
-    color = "blue"
-    visualize = False
-    
 
-    ####################################################3
-    # Request all mps for all aria recordings at single location
-    ####################################################3
+    data_indexer = RecordingIndex(os.path.join(str(base_path), "raw"))
 
-    ###################################################
-    #locs = ["office_1", "office_2"]
-    #
-    #for rec_location in locs:
-    #    leica_data = LeicaData(base_path, rec_location, initial_setup="001")
-    #    leica_data.extract_all_setups()
-    #    leica_data.make_360_views_from_pano(manual_xyz=None)    
-    ####################################
+    print(f"[extraction] location={location} interactions={interactions} "
+          f"color={color} stages={stages}")
 
-    #if 1 == 0:
-    #    rec_locs = ["mlhall_1"]
-    #    for rec_loc in rec_locs:
-    request_mps_for_aria_recordings_fors_single_location(
-                rec_location=rec_location, 
-                data_indexer=data_indexer,
+    # Aria MPS request for the whole location (once, before the interaction loop)
+    if "mps" in stages:
+        request_mps_for_aria_recordings_fors_single_location(
+            rec_location=location,
+            data_indexer=data_indexer,
+            base_path=base_path,
+            no_ui=mps_no_ui,
+        )
+
+    for interaction_index in interactions:
+        # Leica map is needed by every recorder pipeline for spatial registration,
+        # so the loader is always constructed; only its extraction is stage-gated.
+        leica_data = LeicaData(base_path, location, initial_setup="001")
+        if "leica" in stages:
+            leica_data.extract_all_setups()
+            leica_data.make_360_views_from_pano(manual_xyz=None)
+
+        if "hand" in stages:
+            run_pipeline_hand_recording(
+                interaction_index=interaction_index,
+                rec_location=location,
                 base_path=base_path,
-                no_ui=True
+                leica_data=leica_data,
+                data_indexer=data_indexer,
+                visualize=visualize,
             )
 
-for interaction_index in ["1-7"]:
-        ################################################3
-        # Leica Recording Data Extraction for single location
-        ################################################3
-        leica_data = LeicaData(base_path, rec_location, initial_setup="001")
-        leica_data.extract_all_setups()
-        leica_data.make_360_views_from_pano(manual_xyz=None)
+        if "gripper" in stages:
+            run_pipeline_gripper_recording(
+                interaction_index=interaction_index,
+                rec_location=location,
+                base_path=base_path,
+                leica_data=leica_data,
+                data_indexer=data_indexer,
+                color=color,
+                visualize=visualize,
+            )
+
+        if "wrist" in stages:
+            run_pipeline_wrist_recording(
+                interaction_index=interaction_index,
+                rec_location=location,
+                base_path=base_path,
+                leica_data=leica_data,
+                data_indexer=data_indexer,
+                visualize=visualize,
+            )
+
+        if "umi" in stages:
+            run_pipeline_umi_recording(
+                interaction_index=interaction_index,
+                rec_location=location,
+                base_path=base_path,
+                path_docker_root_odometry=docker_odometry,
+                leica_data=leica_data,
+                color=color,
+                data_indexer=data_indexer,
+                visualize=visualize,
+            )
 
 
-        ################################################3
-        # hand Recording Data Extraction for single location and interaction index
-        ################################################3
-        run_pipeline_hand_recording(
-           interaction_index=interaction_index, 
-           rec_location=rec_location,
-           base_path=base_path,
-           leica_data=leica_data,
-           data_indexer=data_indexer,
-           visualize=visualize
-        )
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the Hoi! extraction pipeline for a single recording location.",
+    )
+    parser.add_argument(
+        "--config", required=True, type=Path,
+        help="Path to a YAML run config (see data_processing/configs/).",
+    )
+    return parser.parse_args(argv)
 
-        ###############################################3
-        #Gripper Recording Data Extraction for single location and interaction index
-        ###############################################3
-        run_pipeline_gripper_recording(
-            interaction_index=interaction_index, 
-            rec_location=rec_location,
-            base_path=base_path,
-            leica_data=leica_data,
-            data_indexer=data_indexer,
-            color=color,
-            visualize=visualize,
-        )
 
-        ################################################3
-        # Wrist Recording Data Extraction for single location and interaction index
-        ################################################3
-        run_pipeline_wrist_recording(
-             interaction_index=interaction_index, 
-             rec_location=rec_location,
-             base_path=base_path,
-             leica_data=leica_data,
-             data_indexer=data_indexer,
-             visualize=visualize
-         ) 
-        
-        ################################################3
-        # UMI Recording Data Extraction for single location and interaction index
-        ################################################3
-        run_pipeline_umi_recording(
-            interaction_index=interaction_index, 
-            rec_location=rec_location,
-            base_path=base_path,
-            path_docker_root_odometry=path_docker_root_odometry,
-            leica_data=leica_data,
-            color=color,
-            data_indexer=data_indexer,
-            visualize=visualize
-        )
-
+if __name__ == "__main__":
+    args = parse_args()
+    run_extraction(load_config(args.config))

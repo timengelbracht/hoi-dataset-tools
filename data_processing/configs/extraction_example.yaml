@@ -1,0 +1,21 @@
+# Run config for the Hoi! extraction pipeline (single recording location).
+# Usage:
+#   python -m hoi.data_tools.extraction_pipeline --config data_processing/configs/extraction_example.yaml
+
+base_path: /data/ikea_recordings   # dataset root; expects <base_path>/raw
+location: kitchen_6                 # recording location to process
+interactions: ["1-7"]              # interaction-index ranges, e.g. ["1-6", "7-11"]
+color: blue                        # gripper color: blue | yellow
+visualize: false
+
+# Path to the ORB-SLAM / odometry docker dir. Relative paths resolve against the
+# repo root; absolute paths are used as-is.
+docker_odometry: data_processing/docker/odometry
+
+# Which stages to run (any subset of the list below):
+#   mps    - request Aria MPS for all aria recordings at the location (once)
+#   leica  - extract Leica setups + 360 panoramas
+#   hand / gripper / wrist / umi - per-interaction recorder pipelines
+stages: [mps, leica, hand, gripper, wrist, umi]
+
+mps_no_ui: true                    # run the MPS request without its UI
