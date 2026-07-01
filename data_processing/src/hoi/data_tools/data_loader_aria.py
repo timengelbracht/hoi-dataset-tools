@@ -36,8 +36,8 @@ from .utils_anonymization import EgoBlurFaceAnonymizer
 
 class AriaData:
 
-    ARIA_USERNAME = "REDACTED"
-    ARIA_PASSWORD = "REDACTED"
+    ARIA_USERNAME = os.environ.get("ARIA_USERNAME")  # set via env; no credentials in source
+    ARIA_PASSWORD = os.environ.get("ARIA_PASSWORD")  # MPSClient falls back to an interactive prompt if unset
 
     # monodepth model setup
     DEVICE, _, _ = get_backend()

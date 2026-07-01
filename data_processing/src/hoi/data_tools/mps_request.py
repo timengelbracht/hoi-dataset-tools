@@ -33,8 +33,8 @@ from typing import List, Sequence
 
 class MPSClient:
 
-    ARIA_USERNAME = "REDACTED"
-    ARIA_PASSWORD = "REDACTED"
+    ARIA_USERNAME = os.environ.get("ARIA_USERNAME")  # set via env; no credentials in source
+    ARIA_PASSWORD = os.environ.get("ARIA_PASSWORD")  # login() falls back to an interactive prompt if unset
 
     """Thin wrapper around the `aria_mps` command-line tool."""
 
