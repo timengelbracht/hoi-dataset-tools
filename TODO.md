@@ -38,9 +38,9 @@
       file in sync manually if you change the devcontainer (they are two files).
 
 ## Other open items (from the release cleanup pass)
-- [ ] Delete dead dependency files: `data_processing/docker/aria/.devcontainer/Dockerfile`
-      (unused duplicate nothing builds) and top-level `requirements.txt`
-      (stale: pins projectaria 1.5.7, actual is 1.5.6).
+- [x] Removed stale top-level `requirements.txt` (unreferenced; pinned projectaria 1.5.7 vs actual 1.5.6).
+- [ ] Delete dead `data_processing/docker/aria/.devcontainer/Dockerfile`
+      (unused duplicate — devcontainer.json builds `../Dockerfile`, not this one).
 - [ ] Keep/delete decision: `data_processing/src/hoi/data_tools/extract_raw_single_location.py`
       (standalone, possibly stale) and `data_processing/data_loader.py` (dead-code candidate).
 - [ ] Pin gtsam (currently builds master; the `4.3.0` tag never existed — use `4.2.2` /
