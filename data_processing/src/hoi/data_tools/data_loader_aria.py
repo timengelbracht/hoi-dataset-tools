@@ -15,7 +15,7 @@ from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 import json
 from .utils import ensure_dir, save_image, clean_label, estimate_fps, load_sorted_images, is_valid_image
-from .mps_request import MPSClient
+from .mps_request import MPSClient, load_aria_credentials
 from .data_indexer import RecordingIndex
 import torch
 from transformers import pipeline
@@ -36,8 +36,8 @@ from .utils_anonymization import EgoBlurFaceAnonymizer
 
 class AriaData:
 
-    ARIA_USERNAME = os.environ.get("ARIA_USERNAME")  # set via env; no credentials in source
-    ARIA_PASSWORD = os.environ.get("ARIA_PASSWORD")  # MPSClient falls back to an interactive prompt if unset
+    # From a git-ignored YAML file, else env vars, else interactive prompt.
+    ARIA_USERNAME, ARIA_PASSWORD = load_aria_credentials()
 
     # monodepth model setup
     DEVICE, _, _ = get_backend()

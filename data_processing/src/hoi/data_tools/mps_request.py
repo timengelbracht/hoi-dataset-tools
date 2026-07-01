@@ -30,11 +30,34 @@ from getpass import getpass
 from pathlib import Path
 from typing import List, Sequence
 
+import yaml
+
+
+def load_aria_credentials() -> tuple[str | None, str | None]:
+    """Resolve (username, password) for Aria MPS.
+
+    Precedence:
+      1. YAML file at $ARIA_CREDENTIALS_FILE, else the repo-root
+         `aria_credentials.yaml` (git-ignored; convenient for debugging).
+      2. $ARIA_USERNAME / $ARIA_PASSWORD environment variables.
+      3. (None, None) -> MPSClient.login() prompts interactively.
+
+    NEVER commit a filled-in credentials file. See aria_credentials.example.yaml.
+    """
+    env_path = os.environ.get("ARIA_CREDENTIALS_FILE")
+    # mps_request.py: data_tools -> hoi -> src -> data_processing -> <repo root>
+    repo_root = Path(__file__).resolve().parents[4]
+    for candidate in ([Path(env_path)] if env_path else []) + [repo_root / "aria_credentials.yaml"]:
+        if candidate.is_file():
+            data = yaml.safe_load(candidate.read_text()) or {}
+            return data.get("username"), data.get("password")
+    return os.environ.get("ARIA_USERNAME"), os.environ.get("ARIA_PASSWORD")
+
 
 class MPSClient:
 
-    ARIA_USERNAME = os.environ.get("ARIA_USERNAME")  # set via env; no credentials in source
-    ARIA_PASSWORD = os.environ.get("ARIA_PASSWORD")  # login() falls back to an interactive prompt if unset
+    # From a git-ignored YAML file, else env vars, else interactive prompt.
+    ARIA_USERNAME, ARIA_PASSWORD = load_aria_credentials()
 
     """Thin wrapper around the `aria_mps` command-line tool."""
 

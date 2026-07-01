@@ -62,14 +62,17 @@ Container"), or build via `docker/aria/docker-compose.yml`. The container's
 
 ## Credentials (Aria MPS)
 The `mps` stage of the extraction pipeline requests Aria Machine Perception
-Services and therefore needs **Project Aria account credentials**. They are read
-from environment variables (no credentials are stored in the repo):
-```bash
-export ARIA_USERNAME=<your-aria-account>
-export ARIA_PASSWORD=<your-aria-password>
-```
-If unset, `MPSClient` falls back to an interactive prompt. Stages that don't
-touch Aria MPS don't need them.
+Services and needs **Project Aria account credentials**. No credentials are
+stored in the repo; they are resolved in this order:
+
+1. **YAML file** (handy for debugging) — copy `aria_credentials.example.yaml`
+   to `aria_credentials.yaml` (git-ignored) at the repo root and fill in
+   `username` / `password`. Or point `ARIA_CREDENTIALS_FILE` at a file elsewhere.
+2. **Environment variables** — `ARIA_USERNAME` / `ARIA_PASSWORD`.
+3. **Interactive prompt** — if neither of the above is set.
+
+Never commit a filled-in `aria_credentials.yaml`. Stages that don't touch Aria
+MPS don't need credentials.
 
 ## Expected raw data layout
 The pipeline parses a fixed directory structure under `<base_path>/raw/`. Each
