@@ -70,20 +70,11 @@ RUN apt-get update && \
         libxinerama-dev libxcursor-dev libgl1-mesa-dev libglu1-mesa-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build and install Open3D with CUDA
-RUN git clone --recursive https://github.com/isl-org/Open3D /open3d && \
-    cd /open3d && \
-    mkdir build && cd build && \
-    cmake .. \
-      -DCMAKE_INSTALL_PREFIX=/usr/local \
-      -DBUILD_CUDA_MODULE=ON \
-      -DCUDA_ARCH_NAME=Auto \
-      -DBUILD_GUI=ON \
-      -DBUILD_SHARED_LIBS=ON \
-      -DPYTHON_EXECUTABLE=$(which python3) && \
-    make -j$(nproc) && make install && \
-    make pip-package -j$(nproc) && \
-    pip install lib/python_package/pip_package/open3d-*.whl
+# Open3D: prebuilt PyPI wheel (CPU). The pipeline runs on 0.19.0 from pip and
+# does not need Open3D's CUDA module, so we no longer build from source (the
+# old CUDA build was slow and fragile). The previous source build is in git
+# history if CUDA-enabled Open3D is ever required.
+RUN pip install --no-cache-dir open3d==0.19.0
 
 RUN pip install --no-cache-dir egoblur
 RUN pip install --no-cache-dir \
@@ -108,6 +99,10 @@ RUN apt-get update && \
     apt-get install -y libzbar0 docker-cli python3-tk && \
     rm -rf /var/lib/apt/lists/*
 
+# Pin pycolmap explicitly — otherwise it is pulled transitively (and unpinned)
+# via hloc, and the code in spatial_registrator.py is coupled to this API.
+RUN pip install --no-cache-dir pycolmap==4.0.3
+
 # Clone and install Hierarchical-Localization
 RUN git clone --recursive https://github.com/cvg/Hierarchical-Localization.git /Hierarchical-Localization && \
     cd /Hierarchical-Localization && \
@@ -124,7 +119,7 @@ RUN apt-get update && apt-get install -y \
 
 # build + python bindings (single configure from repo root)
 RUN git clone https://github.com/borglab/gtsam.git /gtsam && \
-    cd /gtsam && git checkout 4.3.0 || true && \
+    cd /gtsam && git checkout 4.3.0 && \
     pip install pybind11_stubgen && \
     mkdir -p build && cd build && \
     cmake .. \
