@@ -26,8 +26,8 @@
 - [x] Per-rig hardware identifiers centralized in `hardware.env` + interface script.
 - [x] `data_recording/README.md` end-to-end setup guide.
 - [ ] Add CAD / 3D-print files + bill-of-materials for the gripper assembly (not in repo).
-- [ ] Verify the `timengelbracht/*` forks are public and reachable
-      (`gelsight_digit_ros`, `gripper_force_controller`) — required for the nano build.
+- [x] Verify the `timengelbracht/*` forks are public and reachable
+      (`gelsight_digit_ros`, `gripper_force_controller`) — both public, default branch `main`.
 - [ ] Decide fate of the non-nano compose services (`testing`, `jetson`, `rpi/light`,
       `spot_agx`, `aria`): keep as documented variants or trim.
 

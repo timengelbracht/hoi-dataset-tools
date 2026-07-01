@@ -5,8 +5,12 @@ the two other parts: `../data_recording` produces the calibration bags, and the
 calibration outputs (the `*-camchain.yaml` files) are consumed by
 `../data_processing`.
 
-The container here builds [`allan_variance_ros`](https://github.com/ori-drs/allan_variance_ros)
-for IMU-noise characterization, which feeds Kalibr for camera/IMU extrinsics.
+This part is intentionally just **stock open-source calibration tooling** —
+[Kalibr](https://github.com/ethz-asl/kalibr) for camera and camera/IMU
+calibration, and [`allan_variance_ros`](https://github.com/ori-drs/allan_variance_ros)
+for IMU-noise characterization (which feeds Kalibr). There is no Hoi!-specific
+calibration code here; it is kept as-is and you can equally use your own Kalibr /
+allan_variance_ros setup.
 
 ## Contents
 ```
