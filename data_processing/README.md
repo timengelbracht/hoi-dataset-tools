@@ -14,10 +14,43 @@ src/hoi/                 # the installable `hoi` Python package
   evaluation_tools/      # benchmark / evaluation scripts
   annotation_tools/      # interactive annotation GUIs (Tkinter) + SAM service
 docker/aria/             # dev container the pipeline runs in (.devcontainer + docker-compose)
-docker/odometry/         # ORB-SLAM3 / VINS / OpenVINS containers (invoked by the UMI pipeline)
-third_party/open_vins/   # OpenVINS source (odometry dependency)
+docker/odometry/         # ORB-SLAM3 container (used by the UMI pipeline). See note below.
+third_party/open_vins/   # OpenVINS source (legacy, see note below)
 configs/                 # example run configs
 ```
+
+## Pipeline overview
+Processing one recording location runs, in order, through a small set of modules
+that each own one alignment step:
+
+1. **Extract raw data** — the per-sensor loaders
+   (`data_loader_aria.py`, `data_loader_umi.py`, `data_loader_gripper.py`,
+   `data_loader_iphone.py`, `data_loader_leica.py`) decode each stream (Aria VRS
+   + MPS, UMI GoPro MP4, gripper ZED/force-torque bag, iPhone RGB-D, Leica scans)
+   into a common on-disk layout. `data_indexer.py` discovers what exists for a
+   location/interaction.
+2. **Time-align the streams** — `time_align_extracted_single_recording.py`
+   (`Datasyncer`) computes per-stream time offsets and crops all streams of a
+   recording to a common window.
+3. **Spatially align the streams** — `spatial_registrator.py` registers each
+   trajectory into the shared Leica world frame (hloc/InLoc anchors; for UMI a
+   GTSAM pose-graph over the ORB-SLAM odometry).
+4. **Split interactions** — the aligned recording is cut into individual
+   interaction windows (followed by some **manual annotation**, see
+   `annotation_tools/`).
+5. **Bundle for release** — `package_dataset_release.py` copies/anonymizes an
+   extracted location into the release tree.
+
+The `run_pipeline_*` functions in `extraction_pipeline.py` orchestrate steps 1–4
+per recorder; step 5 is a separate CLI.
+
+## Odometry (ORB-SLAM3 only)
+The `umi` stage shells into `docker/odometry/` and runs **monocular ORB-SLAM3**
+(`mono_euroc` in the `orbslam3-melodic` container); the container is torn down and
+recreated per run. **Note:** the VINS-Fusion / OpenVINS Dockerfiles in
+`docker/odometry/` and `third_party/open_vins/` are **legacy experiments and are
+not used by the current pipeline** — only ORB-SLAM3 is invoked. They can be
+removed if we don't intend to revisit inertial odometry.
 
 ## Environment
 The package is developed and run inside the **aria dev container**
@@ -27,6 +60,44 @@ Container"), or build via `docker/aria/docker-compose.yml`. The container's
 `hoi` package is importable on start. All Python dependencies are pinned in
 `docker/aria/Dockerfile`.
 
+## Expected raw data layout
+The pipeline parses a fixed directory structure under `<base_path>/raw/`. Each
+recording file/folder is named `<location>_<interaction_range>_<recorder>`
+(e.g. `shoerack_1_1-7_umi`); `data_indexer.py` takes the interaction range from
+the token after the location.
+
+```
+raw/
+├── <location>/                          # e.g. shoerack_1
+│   ├── gripper/                          # interaction type
+│   │   ├── gripper/                      #   ZED + force/torque rosbag(s)
+│   │   │   └── <loc>_<range>_<date>.bag
+│   │   ├── aria_gripper/                 #   Aria mounted on the gripper
+│   │   │   ├── <loc>_<range>_gripper.vrs
+│   │   │   └── mps_<loc>_<range>_gripper_vrs/   # Aria MPS output
+│   │   ├── aria_human/                   #   Aria worn by the operator
+│   │   └── "iphone_1 (darkblue)"/  "iphone_2 (green)"/
+│   │       └── <loc>_<range>_gripper/    #   iPhone RGB-D recording
+│   ├── umi/
+│   │   ├── umi_gripper/                  #   handheld UMI GoPro
+│   │   │   └── <loc>_<range>_umi.MP4
+│   │   ├── aria_human/
+│   │   │   ├── <loc>_<range>_umi.vrs
+│   │   │   └── mps_<loc>_<range>_umi_vrs/
+│   │   └── iphone_1/  iphone_2/
+│   ├── hand/
+│   │   ├── aria_human/
+│   │   └── "iphone_1 (darkblue)"/  "iphone_2 (green)"/
+│   ├── wrist/
+│   │   ├── aria_wrist/
+│   │   └── aria_human/
+│   └── leica/                            # Leica scans: "Job NNN- Setup NNN.{e57,png,txt,...}"
+├── calib/                               # gripper_blue/ gripper_yellow/ blue/ yellow/ hand_eye/
+└── umi_meta/                            # calib/{blue,yellow}/  slam_config/  umi_mask.png
+```
+Not every location has every recorder/interaction; the indexer only processes
+what is present.
+
 ## Running the extraction pipeline
 Config-driven (one YAML per run/location — see `configs/extraction_example.yaml`):
 ```bash
@@ -34,10 +105,6 @@ python -m hoi.data_tools.extraction_pipeline --config configs/extraction_example
 ```
 The config selects the location, interaction indices, gripper color, and which
 `stages` to run (`mps`, `leica`, `hand`, `gripper`, `wrist`, `umi`).
-
-The `umi` stage shells into `docker/odometry/` to run monocular ORB-SLAM3; that
-container is torn down and recreated per run. See `docker/odometry/` for the
-standalone odometry/VINS/OpenVINS setups.
 
 ## Packaging a release
 `package_dataset_release.py` is a standalone CLI that copies one extracted
