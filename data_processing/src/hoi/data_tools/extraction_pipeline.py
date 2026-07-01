@@ -678,10 +678,16 @@ def run_extraction(cfg: dict) -> None:
         cfg.get("docker_odometry", "data_processing/docker/odometry")
     )
 
-    data_indexer = RecordingIndex(os.path.join(str(base_path), "raw"))
+    # Which subtree to index for recording discovery. Normally "raw" (the
+    # recordings to extract). Use "extracted" when the raw data is gone and you
+    # only want to (re)run downstream steps on already-extracted data.
+    index_from = cfg.get("index_from", "raw")
+    if index_from not in ("raw", "extracted"):
+        raise ValueError(f"index_from must be 'raw' or 'extracted', got {index_from!r}")
+    data_indexer = RecordingIndex(os.path.join(str(base_path), index_from))
 
     print(f"[extraction] location={location} interactions={interactions} "
-          f"color={color} stages={stages}")
+          f"color={color} stages={stages} index_from={index_from}")
 
     # Aria MPS request for the whole location (once, before the interaction loop)
     if "mps" in stages:

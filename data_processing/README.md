@@ -117,6 +117,12 @@ python -m hoi.data_tools.extraction_pipeline --config configs/extraction_example
 The config selects the location, interaction indices, gripper color, and which
 `stages` to run (`mps`, `leica`, `hand`, `gripper`, `wrist`, `umi`).
 
+`index_from` controls which subtree under `base_path` is scanned for recordings:
+`raw` (default) for discovering recordings to extract, or `extracted` when the
+raw data is no longer present and you only want to (re)run downstream steps on
+already-extracted data. Both trees share the same
+`<location>/<interaction>/<recorder>/` layout, so discovery works from either.
+
 ## Packaging a release
 `package_dataset_release.py` is a standalone CLI that copies one extracted
 location into a release-ready tree:

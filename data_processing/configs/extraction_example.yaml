@@ -19,3 +19,8 @@ docker_odometry: data_processing/docker/odometry
 stages: [mps, leica, hand, gripper, wrist, umi]
 
 mps_no_ui: true                    # run the MPS request without its UI
+
+# Which subtree under base_path to index for recording discovery:
+#   raw       - discover recordings to extract (default)
+#   extracted - raw data is gone; only (re)run downstream steps on extracted data
+index_from: raw
