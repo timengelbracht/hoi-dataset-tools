@@ -24,12 +24,13 @@ RUN ln -s /usr/bin/python3 /usr/bin/python   # handy alias
 RUN python3 -m pip install --upgrade pip
 
 # 1) core packages that never clash
-RUN pip install --no-cache-dir --ignore-installed blinker \
-      numpy wheel matplotlib opencv-python setuptools \
-      moviepy==1.0.3 'rosbags[image]' pye57
+RUN pip install --no-cache-dir --ignore-installed blinker==1.9.0 \
+      numpy==2.2.6 wheel matplotlib==3.10.9 opencv-python==4.13.0.92 setuptools \
+      moviepy==1.0.3 'rosbags[image]==0.10.11' pye57==0.4.19
 
-# 2) GUI / dashboard first → pulls projectaria-tools ≥ 1.5.6a2 (e.g. 1.6.0)
-RUN pip install --no-cache-dir aria_studio
+# 2) GUI / dashboard first. Pin aria_studio + projectaria-tools to the working
+#    versions (aria_studio otherwise pulls projectaria-tools unpinned).
+RUN pip install --no-cache-dir aria_studio==1.0.2 projectaria-tools==1.5.6
 
 # 3) Client SDK without deps (skip its pin to 1.5.2a1). Pinned to the original
 #    working version; unpinned it drifted 2.3.0 -> 2.4.0 on rebuild.
@@ -90,7 +91,7 @@ RUN git clone --recursive https://github.com/isl-org/Open3D /open3d && \
     make pip-package -j$(nproc) && \
     pip install lib/python_package/pip_package/open3d-*.whl
 
-RUN pip install --no-cache-dir egoblur
+RUN pip install --no-cache-dir egoblur==2.0.1
 RUN pip install --no-cache-dir \
     accelerate==1.9.0 \
     huggingface-hub==0.33.4 \
@@ -134,7 +135,7 @@ RUN apt-get update && apt-get install -y \
 # build + python bindings (single configure from repo root)
 RUN git clone https://github.com/borglab/gtsam.git /gtsam && \
     cd /gtsam && \
-    pip install pybind11_stubgen && \
+    pip install pybind11_stubgen==2.5.5 && \
     mkdir -p build && cd build && \
     cmake .. \
     -DGTSAM_BUILD_PYTHON=1 \
@@ -143,7 +144,7 @@ RUN git clone https://github.com/borglab/gtsam.git /gtsam && \
     make install && \
     make python-install && ldconfig
 
-RUN pip install scikit-learn
+RUN pip install scikit-learn==1.7.2
 ARG COMPOSE_VERSION=v2.29.7
 RUN set -eux; \
     apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*; \
@@ -170,7 +171,7 @@ RUN mkdir -p /etc/profile.d /venvs && \
     echo 'eval "$(/usr/local/bin/micromamba shell hook --shell bash)"' >> /etc/bash.bashrc && \
     chmod 644 /etc/profile.d/micromamba.sh
     
-RUN pip install cvxpy rosbags==0.10.11
+RUN pip install cvxpy==1.7.5 rosbags==0.10.11
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TAR_OPTIONS="--no-same-owner --no-same-permissions"
