@@ -97,6 +97,8 @@ RUN pip install --no-cache-dir \
     huggingface-hub==0.33.4 \
     transformers==4.53.2 \
     qreader==3.16 \
+    ultralytics==8.4.41 \
+    ultralytics-thop==2.0.19 \
     lz4==4.4.4 \
     OpenEXR==3.3.4 \
     pillow==11.3.0 \
