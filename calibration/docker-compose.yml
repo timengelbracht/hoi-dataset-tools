@@ -1,0 +1,19 @@
+version: '3'
+services:
+  calibration:
+    container_name: allan_variance_ros
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/media/cvg/Extreme Pro/dlab_recordings:/bags"  
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/home/cvg-robotics/tim_ws/calib:/calib"
+    environment:
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=127.0.0.1
+      - DISPLAY=:0
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]

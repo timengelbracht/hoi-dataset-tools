@@ -1,0 +1,109 @@
+# Use ROS Noetic as the base
+FROM ros:noetic
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies (ROS + system)
+RUN apt-get update && apt-get install -y \
+    ros-noetic-rosbag \
+    ros-noetic-cv-bridge \
+    python3-pip \
+    git \
+    build-essential \
+    cmake \
+    nano \
+    curl \
+    mesa-utils \
+    ros-noetic-plotjuggler-ros \
+    ros-noetic-robot-state-publisher \
+    ros-noetic-joint-state-publisher \
+    ros-noetic-ros-control \
+    ros-noetic-ros-controllers \
+    ros-noetic-dynamixel-workbench-controllers \
+    ros-noetic-rosserial-arduino \
+    ros-noetic-rosserial \
+    ros-noetic-rosserial-arduino \
+    ros-noetic-rosserial \
+    ros-noetic-camera-info-manager \
+    ros-noetic-diagnostic-updater \
+    ros-noetic-tf2-ros \
+    python3-catkin-tools \
+    v4l-utils \
+    udev \
+    libusb-1.0-0-dev \ 
+    libhidapi-libusb0 \ 
+    libhidapi-dev \ 
+    libopencv-dev \
+    libopencv-viz-dev \
+    libxmlrpcpp-dev \
+    librosconsole-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /catkin_ws/src
+WORKDIR /catkin_ws
+
+# Clone ROS repositories
+RUN git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench-msgs.git src/dynamixel-workbench-msgs
+RUN git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench.git src/dynamixel-workbench
+RUN git clone https://github.com/timengelbracht/gelsight_digit_ros.git src/gelsight_digit_ros
+RUN git clone https://github.com/timengelbracht/zed_open_capture_ros.git src/zed_open_capture_ros
+<<<<<<< Updated upstream
+RUN git clone https://github.com/timengelbracht/gripper_force_controller.git src/gripper_force_controller
+=======
+>>>>>>> Stashed changes
+RUN git clone https://gitlab.com/botasys/bota_driver.git src/bota_driver
+
+# Install ZED Open Capture
+RUN git clone https://github.com/stereolabs/zed-open-capture.git src/zed-open-capture
+WORKDIR /catkin_ws/src/zed-open-capture/udev
+RUN bash install_udev_rule.sh
+WORKDIR /catkin_ws/src/zed-open-capture
+RUN mkdir build && cd build && cmake .. && make -j$(nproc)
+RUN cd build && sudo make install && sudo ldconfig
+WORKDIR /catkin_ws
+
+# Securely Clone Bitbucket Repos
+<<<<<<< Updated upstream
+#RUN mkdir -p /root/.ssh
+#COPY id_ed25519 /root/.ssh/id_ed25519
+#COPY id_ed25519.pub /root/.ssh/id_ed25519.pub
+#RUN chmod 600 /root/.ssh/id_ed25519
+#RUN ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
+#RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
+#RUN GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes" git clone git@github.com:timengelbracht/gripper_force_controller.git src/gripper_force_controller
+=======
+
+RUN mkdir -p /root/.ssh
+COPY id_ed25519 /root/.ssh/id_ed25519
+COPY id_ed25519.pub /root/.ssh/id_ed25519.pub
+RUN chmod 600 /root/.ssh/id_ed25519
+RUN ssh-keyscan bitbucket.org >> /root/.ssh/known_hosts
+RUN ssh-keyscan github.com >> /root/.ssh/known_hosts
+RUN GIT_SSH_COMMAND="ssh -i /root/.ssh/id_ed25519 -o IdentitiesOnly=yes" git clone git@github.com:timengelbracht/gripper_force_controller.git src/gripper_force_controller
+>>>>>>> Stashed changes
+
+RUN apt-get update && rosdep update
+RUN rosdep install --from-paths src --ignore-src -r -y || true
+
+RUN pip install -r src/gelsight_digit_ros/requirements.txt
+
+# overwrite custom config
+COPY basic.yaml /catkin_ws/src/dynamixel-workbench/dynamixel_workbench_controllers/config/basic.yaml
+
+# Build the workspace with catkin build
+WORKDIR /catkin_ws
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin build"
+
+# Set up the environment
+SHELL ["/bin/bash", "-c"]
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+RUN echo "source /catkin_ws/devel/setup.bash" >> ~/.bashrc
+
+
+# Remove SSH keys for security
+#RUN rm -rf /root/.ssh
+
+
+# Default command (Keeps container running for interaction)
+CMD ["bash"]

@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- ZED SETTINGS -->
+  <arg name="zed_grab_rate"  default="25"/>
+  <arg name="zed_imu_sync"   default="true"/>
+  <arg name="zed_sync_mode"  default="2"/>
+
+  <!-- DIGIT SETTINGS -->
+  <arg name="digit_left_id"  default="D21235"/>
+  <arg name="digit_right_id" default="D21228"/>
+  <arg name="digit_rate"     default="20"/>
+
+  <!-- DYNAMIXEL -->
+  <arg name="dxl_device"
+       default="/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT89FCUV-if00-port0"/>
+  <arg name="dxl_baud"       default="57600"/>
+  <arg name="min_ticks"       default="106"/>
+  <arg name="max_ticks"       default="197"/>
+  <arg name="telemetry_hz"       default="40"/>
+
+  <!-- SERIAL (LOAD-CELL) -->
+  <arg name="serial_port"
+       default="/dev/serial/by-id/usb-Arduino_LLC_Arduino_Nano_Every_1E4CCDEC515346354E202020FF113D46-if00"/>
+  <arg name="serial_baud"    default="57600"/>
+
+  <!-- ROKUBIMINI / ETHERCAT -->
+  <arg name="ethercat_bus"   default="eth0"/>
+  <arg name="ft_sensor_name" default="ft_sensor0"/>
+  <arg name="ft_config_file"
+       default="$(find rokubimini)/config/rokubimini_sensor.yaml"/>
+  <arg name="ft_product_name" default="BFT-SENS-ECAT-M8"/>
+  <arg name="ft_address"      default="1"/>
+
+  <!-- 1  Set ZED params before wrapper starts -->
+  <group ns="zedm">
+    <param name="general/grab_frame_rate"        value="$(arg zed_grab_rate)"/>
+    <param name="video/sync_mode"                value="$(arg zed_sync_mode)"/>
+    <param name="sensors/sensors_timestamp_sync" value="$(arg zed_imu_sync)"/>
+  </group>
+
+  <!-- 2  Start official ZED launch chain -->
+  <include file="$(find zed_wrapper)/launch/zedm.launch">
+    <arg name="camera_model" value="zedm"/>
+    <arg name="camera_name" value="zedm"/>
+    <arg name="node_name"   value="zed_node"/>
+
+  <!-- FINAL overrides that beat the YAML defaults -->
+  <param name="general/grab_frame_rate"        value="$(arg zed_grab_rate)"/>
+  <param name="video/sync_mode"                value="$(arg zed_sync_mode)"/>
+  <param name="sensors/sensors_timestamp_sync" value="$(arg zed_imu_sync)"/>
+  </include>
+  
+  <!-- 3  DIGIT sensors -->
+
+  <node pkg="gelsight_digit_ros" type="gelsight_dual_digit_node.py"
+        name="digit_dual_node" output="screen" required="true">
+    <param name="device_left_id"  value="$(arg digit_left_id)"/>
+    <param name="device_right_id" value="$(arg digit_right_id)"/>
+    <param name="left_topic_name" value="/digit/left/image_raw"/>
+    <param name="right_topic_name" value="/digit/right/image_raw"/>
+    <param name="publish_rate"    value="$(arg digit_rate)"/>
+    <param name="verbose"         value="0"/> <!-- Optional: set to 0 to silence logging -->
+  </node>
+
+  <!--
+  <node pkg="gelsight_digit_ros" type="gelsight_digit_node.py"
+        name="digit_left" output="screen" required="true">
+    <param name="device_id"    value="$(arg digit_left_id)"/>
+    <param name="node_name"    value="digit_left"/>
+    <param name="topic_name"   value="/digit/left/image_raw"/>
+    <param name="publish_rate" value="$(arg digit_rate)"/>
+  </node>  
+
+  <node pkg="gelsight_digit_ros" type="gelsight_digit_node.py"
+        name="digit_right" output="screen" required="true">
+    <param name="device_id"    value="$(arg digit_right_id)"/>
+    <param name="node_name"    value="digit_right"/>
+    <param name="topic_name"   value="/digit/right/image_raw"/>
+    <param name="publish_rate" value="$(arg digit_rate)"/>
+  </node> -->
+
+  <!-- 4  Dynamixel gripper -->
+  <!--
+  <node pkg="gripper_force_controller"
+        type="dynamixel_force_controller_state_publisher.py"
+        name="dynamixel_force_controller" output="screen" required="true">
+    <param name="devicename"   value="$(arg dxl_device)"/>
+    <param name="baudrate_dxl" value="$(arg dxl_baud)"/>
+  </node> -->
+
+  <!-- 2) Dynamixel Workbench Controller -->
+  <arg name="usb_port"
+       default="/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT89FCUV-if00-port0"/>
+  <arg name="dxl_baud_rate" default="57600"/>
+
+  <include file="$(find dynamixel_workbench_controllers)/launch/dynamixel_controllers.launch">
+    <arg name="usb_port"      value="$(arg usb_port)"/>
+    <arg name="dxl_baud_rate" value="$(arg dxl_baud_rate)"/>
+  </include>
+
+  <node pkg="gripper_force_controller"
+        type="dynamixel_force_controller_fast.py"
+        name="gripper_force_controller"
+        output="screen">
+    <param name="min_ticks" value="$(arg min_ticks)"/>
+    <param name="max_ticks" value="$(arg max_ticks)"/>
+    <param name="telemetry_hz" value="$(arg telemetry_hz)"/>
+  </node>
+
+  <!-- 5  Load-cell via rosserial -->
+  <node pkg="rosserial_python" type="serial_node.py"
+        name="serial_node" output="screen" required="true">
+    <param name="port" value="$(arg serial_port)"/>
+    <param name="baud" value="$(arg serial_baud)"/>
+  </node>
+
+  <!-- 6  Rokubimini EtherCAT bus manager (all params scoped under /bus0) -->
+  <node name="force_torque" pkg="rokubimini_ethercat"
+        type="rokubimini_ethercat_bus_manager_node"
+        launch-prefix="ethercat_grant" output="screen" required="true">
+
+    <param name="num_spinners" type="int" value="1"/>
+    <param name="ethercat_bus" value="$(arg ethercat_bus)"/>
+
+    <!-- Sensor-specific parameters -->
+    <param name="rokubiminis/$(arg ft_sensor_name)/name"
+           value="$(arg ft_sensor_name)"/>
+    <param name="rokubiminis/$(arg ft_sensor_name)/product_name"
+           value="$(arg ft_product_name)"/>
+    <param name="rokubiminis/$(arg ft_sensor_name)/ethercat_address"
+           type="int" value="$(arg ft_address)"/>
+
+    <param name="time_step" type="double" value="0.01"/>
+    <rosparam ns="rokubiminis/$(arg ft_sensor_name)"
+              command="load" file="$(arg ft_config_file)"/>
+  </node>
+
+</launch>

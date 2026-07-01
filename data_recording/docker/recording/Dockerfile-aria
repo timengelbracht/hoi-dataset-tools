@@ -1,0 +1,28 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 python3.10-venv python3-pip \
+    usbutils libusb-1.0-0 libusb-1.0-0-dev \
+    adb iputils-ping curl sudo \
+    build-essential cmake pkg-config \
+    libgl1 libgl1-mesa-glx libglib2.0-0 \
+    && apt-get clean
+
+# Set Python 3.10 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Optional: create a virtual environment
+WORKDIR /app
+RUN python -m venv venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Install Aria SDK and tools
+RUN pip install --upgrade pip && \
+    pip install projectaria_client_sdk==1.2.1 projectaria_tools==1.5.2a1 rerun-sdk --no-cache-dir
+
+# Default entrypoint
+CMD ["/bin/bash"]

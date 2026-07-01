@@ -1,0 +1,103 @@
+###############################################################################
+# AGX Orin · JetPack 5.0.2 · L4T 35.1.0 · ROS Noetic · ZED SDK 4.1.2 · Spot ROS
+###############################################################################
+FROM dustynv/ros:noetic-ros-base-l4t-r35.1.0
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Fix expired ROS GPG key (important for reproducibility)
+# ─────────────────────────────────────────────────────────────────────────────
+RUN set -e && \
+    echo "Fixing ROS apt key..." && \
+    find /etc/apt/sources.list.d -name '*ros*' -delete && \
+    apt-get update && apt-get install -y curl gnupg2 lsb-release && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc \
+        | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+         http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/ros1.list
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Core system + ROS dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake git wget nano curl udev v4l-utils \
+    python3-pip python3-catkin-tools \
+    libusb-1.0-0-dev libhidapi-dev \
+    libegl1 libgles2 libglvnd-dev libgl1-mesa-glx \
+    ros-noetic-image-transport \
+    ros-noetic-camera-info-manager \
+    ros-noetic-diagnostic-updater \
+    ros-noetic-robot-state-publisher \
+    ros-noetic-rosbag \
+    ros-noetic-tf2-geometry-msgs \
+    ros-noetic-xacro \
+    ros-noetic-tf \
+    tmux \
+    zstd \
+ && rm -rf /var/lib/apt/lists/*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. ZED SDK 4.1.2 install (for L4T 35.1 / JetPack 5.0.2)
+# ─────────────────────────────────────────────────────────────────────────────
+WORKDIR /tmp
+ARG ZED_SDK_VER=4.1
+RUN wget -q -O ZED_SDK.run https://download.stereolabs.com/zedsdk/${ZED_SDK_VER}/l4t35.1/jetsons && \
+    chmod +x ZED_SDK.run && ./ZED_SDK.run silent skip_tools skip_drivers && \
+    rm -f ZED_SDK.run && rm -rf /usr/local/zed/resources/*
+
+# Fix libv4l2 symlink (required for ZED SDK on Jetson)
+RUN ln -sf /usr/lib/aarch64-linux-gnu/tegra/libv4l2.so.0 /usr/lib/aarch64-linux-gnu/libv4l2.so
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Create catkin workspace and clone ZED + Spot ROS
+# ─────────────────────────────────────────────────────────────────────────────
+RUN mkdir -p /catkin_ws/src
+WORKDIR /catkin_ws
+
+# ZED wrapper
+RUN git clone --recursive https://github.com/stereolabs/zed-ros-wrapper.git src/zed-ros-wrapper
+
+# Spot wrapper
+WORKDIR /catkin_ws/src
+RUN git clone https://github.com/heuristicus/spot_ros.git && \
+    cd spot_ros && \
+    git config submodule.spot_wrapper.url https://github.com/bdaiinstitute/spot_wrapper.git && \
+    git submodule update --init --recursive
+WORKDIR /catkin_ws/src/spot_ros/spot_wrapper
+RUN pip3 install -e .
+WORKDIR /catkin_ws
+
+RUN apt-get install -y ros-noetic-rviz
+RUN apt-get update && apt-get install -y \
+    qtbase5-dev \
+    qtdeclarative5-dev \
+    qttools5-dev \
+    qttools5-dev-tools && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    ros-noetic-joy \
+    ros-noetic-teleop-twist-joy \
+    ros-noetic-interactive-marker-twist-server \
+    ros-noetic-twist-mux
+RUN pip3 install transforms3d scipy roma torch 
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Build ROS workspace with catkin_tools
+# ─────────────────────────────────────────────────────────────────────────────
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+                  catkin config --extend /opt/ros/noetic && \
+                  catkin build"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. Convenient sourcing for interactive use
+# ─────────────────────────────────────────────────────────────────────────────
+SHELL ["/bin/bash", "-c"]
+RUN echo 'source /opt/ros/noetic/setup.bash' >> ~/.bashrc && \
+    echo 'source /catkin_ws/devel/setup.bash' >> ~/.bashrc
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Default command
+# ─────────────────────────────────────────────────────────────────────────────
+CMD ["bash"]

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- publish end‐effector force -->
+  <node pkg="spot_driver"
+        type="spot_wrench_publisher.py"
+        name="spot_wrench_publisher"
+        output="screen">
+    <param name="ip"       value="192.168.50.3"/>
+    <param name="username" value="admin"/>
+    <param name="password" value="ka3u1nfkr977"/>
+    <param name="rate"     value="30.0"/>
+    <param name="frame_id" value="hand"/>
+  </node>
+
+  <!-- put arm into carry mode once connected -->
+  <node pkg="spot_driver"
+        type="spot_arm_carry.py"
+        name="spot_arm_carry"
+        output="screen">
+    <param name="ip"       value="192.168.50.3"/>
+    <param name="username" value="admin"/>
+    <param name="password" value="ka3u1nfkr977"/>
+  </node>
+
+  <!-- now launch your teleop/quest bringup -->
+  <include file="$(find quest_tracker)/launch/bringup_spot.launch"/>
+
+</launch>

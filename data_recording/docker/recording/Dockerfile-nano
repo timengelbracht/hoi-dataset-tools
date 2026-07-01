@@ -1,0 +1,141 @@
+###############################################################################
+# Jetson container:  Ubuntu 20.04  ·  ROS Noetic  ·  CUDA 11.4  ·  ZED SDK 4.1
+###############################################################################
+FROM dustynv/ros:noetic-ros-base-l4t-r35.4.1
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 LC_ALL=C.UTF-8
+    
+    
+# ── FIX EXPIRED ROS NOETIC KEY ────────────────────────────────────────────────
+RUN set -e \
+ && echo "Refreshing ROS apt key…" \
+ # 1) Remove any old ROS list that triggers the expired key
+ && find /etc/apt/sources.list.d -name '*ros*' -delete \
+ # 2) Refresh package cache *without* ROS, install curl+gnupg2
+ && apt-get update && apt-get install -y --no-install-recommends curl gnupg2 lsb-release \
+ # 3) Import the new key and recreate the ROS list
+ && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc \
+      | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) \
+           signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+           http://packages.ros.org/ros/ubuntu $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/ros1.list
+# ────────────────────
+
+# ──────────────────────────────────────────────────────────────────
+# 1) System & ROS deps  (same list you used before)
+# ──────────────────────────────────────────────────────────────────
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential cmake curl git nano python3-catkin-tools python3-pip \
+      udev v4l-utils wget zstd libusb-1.0-0-dev libhidapi-libusb0 libhidapi-dev \
+      libegl1 libgles2 libglvnd0 libglvnd-dev libgl1-mesa-glx \
+      lsb-release gnupg2 mesa-utils \
+      ros-noetic-diagnostic-updater \
+      ros-noetic-dynamixel-workbench-controllers \
+      ros-noetic-joint-state-publisher \
+      ros-noetic-robot-state-publisher ros-noetic-ros-control \
+      ros-noetic-ros-controllers ros-noetic-rosbag ros-noetic-rosserial \
+      ros-noetic-rosserial-arduino ros-noetic-tf2-geometry-msgs ros-noetic-xacro \
+ && rm -rf /var/lib/apt/lists/*
+
+# ──────────────────────────────────────────────────────────────────
+# 2) Catkin workspace & clones
+# ──────────────────────────────────────────────────────────────────
+RUN mkdir -p /catkin_ws/src
+WORKDIR /catkin_ws
+
+RUN git clone --depth 1 https://github.com/ros-perception/vision_opencv.git -b noetic src/vision_opencv
+RUN git clone --depth 1 https://github.com/ros-perception/image_common.git -b noetic-devel src/image_common
+RUN git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench-msgs.git src/dynamixel-workbench-msgs 
+RUN git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench.git src/dynamixel-workbench 
+RUN git clone https://github.com/timengelbracht/gelsight_digit_ros.git src/gelsight_digit_ros 
+RUN git clone https://github.com/stereolabs/zed-open-capture.git src/zed-open-capture 
+RUN git clone https://github.com/timengelbracht/gripper_force_controller.git src/gripper_force_controller
+
+# ZED Open Capture build
+WORKDIR /catkin_ws/src/zed-open-capture/udev && bash install_udev_rule.sh
+WORKDIR /catkin_ws/src/zed-open-capture
+RUN mkdir build && cd build && cmake .. && make -j$(nproc) && make install && ldconfig
+
+# Gelsight Python deps
+RUN grep -v '^opencv-python' /catkin_ws/src/gelsight_digit_ros/requirements.txt > /tmp/filtered_requirements.txt \
+ && pip install --no-cache-dir -r /tmp/filtered_requirements.txt
+# RUN cp /catkin_ws/src/gelsight_digit_ros/udev/50-DIGIT.rules /lib/udev/rules.d/
+# RUN udevadm control --reload && udevadm trigger
+
+# ──────────────────────────────────────────────────────────────────
+# 3) ZED SDK 4.1.4  (JetPack 5.1 build)
+# ──────────────────────────────────────────────────────────────────
+WORKDIR /tmp
+ARG ZED_SDK_VER=4.1
+RUN wget -q -O ZED_SDK.run \
+      https://download.stereolabs.com/zedsdk/${ZED_SDK_VER}/l4t35.4/jetsons && \
+    chmod +x ZED_SDK.run && \
+    ./ZED_SDK.run silent skip_tools skip_drivers && \
+    rm -rf /usr/local/zed/resources/* ZED_SDK.run
+
+# V4L2 symlink
+RUN ln -sf /usr/lib/aarch64-linux-gnu/tegra/libv4l2.so.0 /usr/lib/aarch64-linux-gnu/libv4l2.so
+
+# ──────────────────────────────────────────────────────────────────
+# 4) Overwrite Dynamixel config
+# ──────────────────────────────────────────────────────────────────
+COPY basic.yaml /catkin_ws/src/dynamixel-workbench/dynamixel_workbench_controllers/config/basic.yaml
+
+# First catkin build (wrapper comes later)
+WORKDIR /catkin_ws
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin build"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ros-noetic-shape-msgs ros-noetic-nodelet \
+      ros-noetic-stereo-msgs ros-noetic-visualization-msgs \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --recursive https://github.com/stereolabs/zed-ros-wrapper.git /catkin_ws/src/zed-ros-wrapper && \
+    cd /catkin_ws/src/zed-ros-wrapper && git checkout master
+
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+                  cd /catkin_ws && \
+                  catkin config --extend /opt/ros/noetic && \
+                  catkin build zed_ros zed_wrapper zed_nodelets"
+
+WORKDIR /catkin_ws
+
+RUN git clone https://github.com/shadow-robot/ethercat_grant.git /catkin_ws/src/ethercat_grant && \
+    git clone https://github.com/orocos/soem.git /catkin_ws/src/soem
+RUN git clone https://gitlab.com/botasys/bota_driver.git /catkin_ws/src/bota_driver
+RUN apt-get update && apt-get install -y \
+    ros-noetic-ethercat-grant \
+    libxmlrpcpp-dev \
+    librosconsole-dev && apt-get clean
+RUN rosdep update && \
+    rosdep install --from-path /catkin_ws/src --ignore-src -y -r --skip-keys="libopencv-dev"
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && \
+                  cd /catkin_ws && \
+                  catkin build ethercat_grant soem bota_driver"
+
+
+WORKDIR /catkin_ws
+RUN apt-get update && \
+    apt-get install -y python3-pip usbutils iproute2 && \
+    pip3 install -U jetson-stats && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /catkin_ws
+# Entrypoint
+#COPY entrypoint-nano.sh /entrypoint-nano.sh
+#RUN chmod +x /entrypoint-nano.sh
+
+# so it doesnt clash with system build
+RUN pip uninstall -y opencv-python opencv-python-headless opencv-contrib-python || true
+
+# Convenient sourcing
+SHELL ["/bin/bash","-c"]
+RUN echo 'source /opt/ros/noetic/setup.bash' >> ~/.bashrc && \
+    echo 'source /catkin_ws/devel/setup.bash' >> ~/.bashrc
+
+CMD ["bash"]
+

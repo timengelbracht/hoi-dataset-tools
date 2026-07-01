@@ -1,0 +1,64 @@
+###############################################
+#   VINS‑Fusion Dockerfile (ROS Melodic)      #
+###############################################
+# Base ROS image (Ubuntu 18.04 + ROS Melodic)
+FROM ros:melodic-ros-base
+
+# -----------------------------------------------------------------------------
+# 0. Configure Environment
+# -----------------------------------------------------------------------------
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# -----------------------------------------------------------------------------
+# 1. Install build & runtime dependencies
+# -----------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    build-essential cmake git pkg-config \
+    python-catkin-tools python-rosdep python-rosinstall python-rosinstall-generator python-wstool \
+    # Libraries frequently required by VINS‑Fusion and related ROS pkgs
+    libeigen3-dev libboost-all-dev libopencv-dev \
+    libceres-dev libgoogle-glog-dev libgflags-dev \
+    # ROS packages used at runtime/visualization
+    ros-melodic-cv-bridge ros-melodic-image-transport \
+    ros-melodic-tf ros-melodic-message-filters ros-melodic-visualization-msgs ros-melodic-rviz\
+    && rm -rf /var/lib/apt/lists/*
+
+# -----------------------------------------------------------------------------
+# 2. Initialize catkin workspace and clone VINS‑Fusion
+# -----------------------------------------------------------------------------
+RUN mkdir -p /catkin_ws/src
+WORKDIR /catkin_ws/src
+
+# Clone repository (default: latest master)
+RUN git clone https://github.com/HKUST-Aerial-Robotics/VINS-Fusion.git
+
+# -----------------------------------------------------------------------------
+# 3. Resolve and install missing dependencies via rosdep
+# -----------------------------------------------------------------------------
+RUN rosdep update && \
+    rosdep install --from-paths /catkin_ws/src --ignore-src -r -y
+
+# -----------------------------------------------------------------------------
+# 4. Build the workspace
+# -----------------------------------------------------------------------------
+WORKDIR /catkin_ws
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && \
+    catkin config --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo && \
+    catkin build"
+
+# -----------------------------------------------------------------------------
+# 5. Set up environment for container sessions
+# -----------------------------------------------------------------------------
+RUN echo 'source /opt/ros/melodic/setup.bash' >> /root/.bashrc && \
+    echo 'source /catkin_ws/devel/setup.bash' >> /root/.bashrc
+
+ENV ROS_PACKAGE_PATH=/catkin_ws/src:$ROS_PACKAGE_PATH
+
+# -----------------------------------------------------------------------------
+# 6. Default entrypoint
+# -----------------------------------------------------------------------------
+CMD ["/bin/bash"]
+

@@ -1,0 +1,229 @@
+version: "3.8"
+services:
+  recording_gripper_testing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gripper_recording_testing
+    network_mode: "host"  # Allows ROS to work with host networking
+    privileged: true      # Grants USB device access
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+      - "/dev/ttyUSB1:/dev/ttyUSB1"
+      - "/dev/ttyUSB2:/dev/ttyUSB2"
+      - /dev/video0:/dev/video0 #zed mini
+      - /dev/video1:/dev/video1 # zed mini
+      - /dev/video2:/dev/video2 # zed mini
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - XDG_RUNTIME_DIR=/tmp
+      - WAYLAND_DISPLAY
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+      - UDEV=1
+      - ROS_MASTER_URI=http://192.168.3.2:11311
+      - ROS_IP=192.168.3.2
+    volumes:
+      - /media/cvg/T7 Shield/spot-aria-recordings:/bags
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - /home/cvg/Documents/hoi-dataset-tools:/hoi-dataset-tools
+    stdin_open: true
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    command: ["/bin/bash"]
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: "nvidia"
+              count: all
+              capabilities: ["gpu"]
+  recording_gripper_jetson:
+    build:
+      context: .
+      dockerfile: Dockerfile-jetson
+    container_name: gripper_recording_jetson
+    network_mode: "host"
+    privileged: true
+    group_add:
+      - plugdev
+      - video
+      - dialout
+    devices:
+      - "/dev:/dev"
+    runtime: nvidia
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - XDG_RUNTIME_DIR=/tmp
+      - WAYLAND_DISPLAY
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+      - UDEV=1
+      - ROS_MASTER_URI=http://192.168.3.2:11311
+      - ROS_IP=192.168.3.2
+      - CUDA_HOME=/usr/local/cuda_host
+      - CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda_host
+      - LD_LIBRARY_PATH=/usr/local/cuda_host/lib64
+      - PATH=/usr/local/cuda_host/bin:${PATH}
+    volumes:
+      - /media/cvg/T7 Shield/spot-aria-recordings:/bags  
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/run/udev:/run/udev:ro"
+      - "/dev/bus/usb:/dev/bus/usb:ro"
+      - "/dev/serial/by-id:/dev/serial/by-id"
+      - "/dev:/dev"
+      - "/usr/local/cuda-11.4:/usr/local/cuda_host:ro"
+    stdin_open: true
+    entrypoint: ["/entrypoint.sh"]
+    command: ["bash"]
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: "nvidia"
+              count: all
+              capabilities: ["gpu"]
+  recording_gripper_nano:
+    build:
+      context: .
+      dockerfile: Dockerfile-nano
+    container_name: gripper_recording_nano 
+    runtime: nvidia          # must stay
+    network_mode: host
+    privileged: true
+    group_add:
+      - plugdev
+      - video
+      - dialout
+    devices:
+      - /dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu
+      - /dev/nvmap
+      - /dev/nvhost-gpu
+      - /dev/nvhost-as-gpu
+      - "/dev:/dev"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=127.0.0.1
+      - UDEV=1
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - ZED_SDK_SVO_VERSION=1
+    volumes:
+      - /ssd:/ssd
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /run/udev:/run/udev:ro
+      - "/dev/bus/usb:/dev/bus/usb"
+      - "/dev/serial/by-id:/dev/serial/by-id"
+      - "./gripper_launch_single_force.launch:/catkin_ws/src/gripper_force_controller/launch/gripper_launch_single_force.launch"
+      - "./zed_common.yaml:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml"
+      - "./zedm.yaml:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/zedm.yaml"
+      - "./zed2i.yaml:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/zed2i.yaml"
+      - "./gripper_record_single_bag_svo.sh:/catkin_ws/start_recording.sh"    
+      - "./basic.yaml:/catkin_ws/src/dynamixel-workbench/dynamixel_workbench_controllers/config/basic.yaml"
+    stdin_open: true
+    # entrypoint: ["/entrypoint-nano.sh"]
+    command: ["bash"]
+    tty: true          
+  recording_spot_agx:
+    build:
+      context: .
+      dockerfile: Dockerfile-agx-orin-spot
+    container_name: spot_recording_agx
+    runtime: nvidia         
+    network_mode: host
+    privileged: true
+    group_add:
+      - plugdev
+      - video
+      - dialout
+    devices:
+      - /dev/nvhost-ctrl
+      - /dev/nvhost-ctrl-gpu
+      - /dev/nvhost-prof-gpu
+      - /dev/nvmap
+      - /dev/nvhost-gpu
+      - /dev/nvhost-as-gpu
+      - "/dev:/dev"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - ROS_MASTER_URI=http://192.168.3.2:11311
+      - ROS_IP=192.168.3.2
+      - UDEV=1
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - ZED_SDK_SVO_VERSION=1
+    volumes:
+      - /mnt/nvme:/ssd
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /run/udev:/run/udev:ro
+      - "/dev/bus/usb:/dev/bus/usb"
+      - "/dev/serial/by-id:/dev/serial/by-id"
+      - "./zed_common.yaml:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/params/common.yaml"
+      - "./spot_launch_full.launch:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/launch/spot_launch_full.launch"
+      - "./spot_launch_teleop.launch:/catkin_ws/src/zed-ros-wrapper/zed_wrapper/launch/spot_launch_teleop.launch"
+      - "./spot_record_full.sh:/catkin_ws/start_recording.sh"
+      - "/mnt/nvme/tim_ws/teleop/haptic_msgs:/catkin_ws/src/haptic_msgs"
+      - "/mnt/nvme/tim_ws/teleop/ROS-TCP-Endpoint:/catkin_ws/src/ROS-TCP-Endpoint"
+      - "/mnt/nvme/tim_ws/teleop/teleop_tools:/catkin_ws/src/teleop_tools"
+      - "/mnt/nvme/tim_ws/spot_ros:/catkin_ws/src/spot_ros"
+    stdin_open: true
+    command: ["bash"]
+    tty: true
+  recording_gripper_rpi:
+    build: 
+      context: . 
+      dockerfile: Dockerfile-light
+    container_name: gripper_recording_rpi
+    network_mode: "host"  
+    privileged: true   
+    group_add:
+      - plugdev
+      - video
+      - dialout
+    devices:
+      - "/dev:/dev"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - XDG_RUNTIME_DIR=/tmp
+      - WAYLAND_DISPLAY
+      - __GLX_VENDOR_LIBRARY_NAME=nvidia
+      - UDEV=1
+      - ROS_MASTER_URI=http://192.168.3.2:11311
+      - ROS_IP=192.168.3.2
+    volumes:
+      - /media/cvg/T7 Shield/spot-aria-recordings:/bags  
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/run/udev:/run/udev:ro"
+      - "/dev/bus/usb:/dev/bus/usb:ro"
+      - "/dev/serial/by-id:/dev/serial/by-id"
+      - "/dev:/dev"
+    stdin_open: true
+    command: ["bash"]
+    tty: true
+  recording_aria:
+    build: 
+      context: .
+      dockerfile: Dockerfile-aria
+    container_name: aria_recording
+    network_mode: "host"
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 189:* rmw'  # Allow USB devices
+    volumes:
+      - ./recordings:/recordings      
+      - /etc/udev/rules.d:/etc/udev/rules.d 
+      - /run/udev:/run/udev
+    environment:
+      - LIBUSB_DEBUG=1
+    stdin_open: true
+    tty: true
+

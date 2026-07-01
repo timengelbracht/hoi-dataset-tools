@@ -1,0 +1,58 @@
+{
+  "name": "aria_dev",
+  "dockerFile": "../Dockerfile",
+  "context": "..",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "ms-vscode-remote.remote-containers",
+        "ms-azuretools.vscode-docker",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  },
+"containerEnv": {
+  "DISPLAY": "${localEnv:DISPLAY}",
+  "MPLBACKEND": "",
+  "QT_QPA_PLATFORM": "xcb"
+},
+  "mounts": [
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+    "source=/dev,target=/dev,type=bind",
+    "source=/home/cvg-robotics/tim_ws,target=/exchange,type=bind",
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
+    "source=/run/udev,target=/run/udev,type=bind,readonly",
+    "source=/media/cvg-robotics/Extreme SSD2,target=/data,type=bind",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=/usr/share/glvnd/egl_vendor.d,target=/usr/share/glvnd/egl_vendor.d,type=bind,readonly",
+    "source=/home/cvg-robotics/.Xauthority,target=/tmp/.Xauthority,type=bind,readonly",
+    "source=/usr/share/vulkan,target=/usr/share/vulkan,type=bind,readonly",
+    "source=/etc/vulkan,target=/etc/vulkan,type=bind,readonly"
+  ],
+  "runArgs": [
+    "--net=host",
+    "--privileged",
+    "--gpus=all",                  
+    "--group-add=plugdev",
+    "--group-add=video",
+    "--env=DISPLAY",               
+    "--env=QT_X11_NO_MITSHM=1",     
+    "--env=NVIDIA_DRIVER_CAPABILITIES=all",
+    "--env=NVIDIA_VISIBLE_DEVICES=all",
+    "--env=PYOPENGL_PLATFORM=egl",
+    "--env=EGL_PLATFORM=surfaceless",
+    "--env=EGL_LOG_LEVEL=debug",
+    "--env=MESA_GL_VERSION_OVERRIDE=4.5",
+    "--env=VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+    "--env=VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json",
+    "--env=__GLX_VENDOR_LIBRARY_NAME=nvidia",
+    "--env=XAUTHORITY=/tmp/.Xauthority"
+  ],
+  "remoteUser": "root",
+  "workspaceFolder": "/exchange",
+  "postStartCommand": "xauth list $DISPLAY | sed -e 's/^..../ffff/' | xargs -I{} sh -c 'echo \"{}\" | xauth merge -'"
+}

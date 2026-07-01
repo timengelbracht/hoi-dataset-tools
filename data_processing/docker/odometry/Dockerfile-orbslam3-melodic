@@ -1,0 +1,127 @@
+FROM ubuntu:18.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# -------------------------------
+# 1. Install base system packages
+# -------------------------------
+RUN apt-get update && apt-get install -y \
+    tzdata lsb-release gnupg curl wget git sudo \
+    build-essential cmake unzip pkg-config \
+    libgtk2.0-dev libavcodec-dev libavformat-dev libswscale-dev \
+    libeigen3-dev libboost-all-dev \
+    libglew-dev libtiff5-dev zlib1g-dev libjpeg-dev libpng-dev \
+    libx11-dev libatlas-base-dev libsuitesparse-dev \
+    libpython2.7-dev python3-pip python3-dev \
+    libcanberra-gtk-module \
+    && rm -rf /var/lib/apt/lists/*
+
+# -------------------------------
+# 2. Install ROS Melodic Desktop-Full
+# -------------------------------
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros1-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+
+RUN apt-get update && apt-get install -y ros-melodic-desktop-full
+
+# Init ROS environment
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash" && \
+    echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+
+# -------------------------------
+# 3. Install ROS dependencies
+# -------------------------------
+RUN apt-get update && apt-get install -y \
+    python-rosdep python-rosinstall python-rosinstall-generator python-wstool \
+    ros-melodic-image-transport \
+    ros-melodic-cv-bridge \
+    ros-melodic-tf \
+    ros-melodic-message-filters \
+    ros-melodic-pcl-ros \
+    && rosdep init && rosdep update
+
+# -------------------------------
+# 4. Install Pangolin
+# -------------------------------
+WORKDIR /root
+RUN git clone --branch v0.9 --depth 1 https://github.com/stevenlovegrove/Pangolin.git && \
+    cd Pangolin && \
+    mkdir build && cd build && \
+    cmake .. && make -j$(nproc) && make install
+
+# -------------------------------
+# 3. Install OpenCV 4.5.5 from source
+# -------------------------------
+WORKDIR /opt
+RUN git clone https://github.com/opencv/opencv.git && \
+    git clone https://github.com/opencv/opencv_contrib.git && \
+    cd opencv && \
+    git checkout 4.5.5 && \
+    cd ../opencv_contrib && \
+    git checkout 4.5.5 && \
+    cd ../opencv && mkdir build && cd build && \
+    cmake -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_INSTALL_PREFIX=/usr/local \
+          -D OPENCV_EXTRA_MODULES_PATH=/opt/opencv_contrib/modules \
+          -D WITH_TBB=ON \
+          -D WITH_V4L=ON \
+          -D WITH_QT=OFF \
+          -D WITH_OPENGL=ON \
+          -D BUILD_EXAMPLES=OFF .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+    
+
+
+RUN apt-get update && apt-get install -y python3-catkin-tools ros-melodic-hector-trajectory-server
+
+# Set up workspace
+WORKDIR /root/catkin_ws/src
+
+# -------------------------------
+# 3. Install ORB_SLAM3
+# -------------------------------
+# Clone ORB-SLAM3 (original repo)
+RUN git clone https://github.com/UZ-SLAMLab/ORB_SLAM3.git /root/ORB_SLAM3
+
+# Build ORB-SLAM3
+WORKDIR /root/ORB_SLAM3
+RUN chmod +x build.sh && ./build.sh ROS
+
+# -------------------------------
+# 3. Install ORB_SLAM3 ROS Wrapper
+# -------------------------------
+# Clone orb_slam3_ros_wrapper and patch ORB_SLAM3_DIR
+WORKDIR /root/catkin_ws/src
+RUN git clone https://github.com/thien94/orb_slam3_ros_wrapper.git && \
+    cd orb_slam3_ros_wrapper 
+RUN sed -i 's|$ENV{HOME}/Packages/ORB_SLAM3|/root/ORB_SLAM3|' /root/catkin_ws/src/orb_slam3_ros_wrapper/CMakeLists.txt
+# sed -i 's|set(ORB_SLAM3_DIR.*|set(ORB_SLAM3_DIR /root/ORB_SLAM3)|' CMakeLists.txt
+
+# Fix include path for common.h (remove "include/")
+#RUN sed -i '/set(ORB_SLAM3_DIR/d' /root/catkin_ws/src/orb_slam3_ros_wrapper/CMakeLists.txt && \
+#    echo 'set(ORB_SLAM3_DIR /root/ORB_SLAM3)' >> /root/catkin_ws/src/orb_slam3_ros_wrapper/CMakeLists.txt
+
+
+# Build catkin workspace
+WORKDIR /root/catkin_ws
+RUN /bin/bash -c "source /opt/ros/melodic/setup.bash && catkin build"
+
+# Copy ORB vocabulary
+RUN cp /root/ORB_SLAM3/Vocabulary/ORBvoc.txt /root/catkin_ws/src/orb_slam3_ros_wrapper/config/
+
+
+# -------------------------------
+# 7. Environment setup
+# -------------------------------
+RUN echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc && \
+    echo "source /root/catkin_ws/devel/setup.bash" >> ~/.bashrc
+
+ENV ROS_PACKAGE_PATH=/root/ORB_SLAM3/Examples/ROS:${ROS_PACKAGE_PATH}
+
+WORKDIR /root
+CMD ["/bin/bash"]
+

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- ZED-M -->
+  <include file="$(find zed_wrapper)/launch/zedm.launch">
+    <arg name="camera_name"  value="zedm"/>
+  </include>
+  <param name="zedm/zed_node/general/serial_number" value="19189870"/>
+  <!-- ZED-2i -->
+   <include file="$(find zed_wrapper)/launch/zed2i.launch">
+    <arg name="camera_name"  value="zed2i"/>
+  </include>
+  <param name="zed2i/zed_node/general/serial_number" value="35693142"/>
+
+  <!-- Spot driver -->
+  <include file="$(find spot_driver)/launch/driver.launch">
+    <arg name="hostname"  value="192.168.50.3"/>
+    <arg name="username"  value="admin"/>
+    <arg name="password"  value="ka3u1nfkr977"/>
+  </include>
+
+    <node pkg="spot_driver" type="spot_wrench_publisher.py" name="spot_wrench_publisher" output="screen">
+    <param name="ip"       value="192.168.50.3"/>
+    <param name="username" value="admin"/>
+    <param name="password" value="ka3u1nfkr977"/>
+    <param name="rate"     value="30.0"/>
+    <param name="frame_id" value="hand"/>
+  </node>
+
+</launch>
+
+

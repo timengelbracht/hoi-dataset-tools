@@ -1,0 +1,1 @@
+projectaria-tools==1.5.7

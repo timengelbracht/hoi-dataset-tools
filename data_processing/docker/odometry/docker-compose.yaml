@@ -1,0 +1,75 @@
+version: '3'
+services:
+  openvins:
+    container_name: openvins_ros
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - "/media/cvg/Extreme SSD:/data"
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/home/cvg/Documents/hoi-dataset-tools:/hoi-dataset-tools"
+      - "/dev:/dev"
+    environment:
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=127.0.0.1
+      - DISPLAY=${DISPLAY}
+    network_mode: host
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]
+  orbslam3-melodic:
+    container_name: orbslam3-melodic
+    build:
+      context: .
+      dockerfile: Dockerfile-orbslam3-melodic
+    volumes:
+      - "/media/cvg/Extreme Pro:/data"
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/home/cvg/Documents/hoi-dataset-tools:/hoi-dataset-tools"
+      - "/dev:/dev"
+      - "/media/cvg-robotics/Extreme SSD1/ikea_recordings/extracted/:/bags"
+      - "/media/cvg-robotics/Extreme SSD1/ikea_recordings/raw/umi_meta/slam_config/orbslam_config.yaml:/root/ORB_SLAM3/orbslam_config.yaml"
+    environment:
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=127.0.0.1
+      - DISPLAY=${DISPLAY} 
+      - NVIDIA_DRIVER_CAPABILITIES=all 
+      - NVIDIA_VISIBLE_DEVICES=all    
+      - QT_X11_NO_MITSHM=1
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]
+    runtime: nvidia
+    shm_size: 8gb                     # Pangolin + OpenCV shared-mem
+    mem_limit: 16g                    # hard RAM
+    memswap_limit: 16g                # disable swap throttling                 # needs nvidia-container-toolkit
+    ulimits:                          # allow >RLIMIT_MEMLOCK
+      memlock:
+        soft: -1
+        hard: -1
+      stack: 67108864   
+  vinsfusion-melodic:
+    container_name: vinsfusion-melodic
+    build:
+      context: .
+      dockerfile: Dockerfile-vinsfusion-melodic
+    volumes:
+      - "/media/cvg/Extreme Pro:/data"
+      - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+      - "/home/cvg/Documents/hoi-dataset-tools:/hoi-dataset-tools"
+      - "/dev:/dev"
+      - "/media/cvg-robotics/Extreme Pro/ikea_recordings/extracted/bedroom_1/umi/umi_gripper/bedroom_1_1-8_umi:/bags"
+      - "/media/cvg-robotics/Extreme Pro/ikea_recordings/extracted/bedroom_1/umi/umi_gripper/bedroom_1_1-8_umi/odometry/slam_config/:/catkin_ws/src/VINS-Fusion/config/slam_config"
+    environment:
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_IP=127.0.0.1
+      - DISPLAY=${DISPLAY} 
+      - NVIDIA_DRIVER_CAPABILITIES=all 
+      - NVIDIA_VISIBLE_DEVICES=all    
+      - QT_X11_NO_MITSHM=1
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]
+    runtime: nvidia
+    mem_limit: 64g   

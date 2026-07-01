@@ -1,0 +1,112 @@
+# Base image: ROS Noetic on Ubuntu 20.04
+FROM ros:noetic
+
+# Environment setup
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+# Install system and ROS dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    nano \
+    python3-catkin-tools \
+    python3-pip \
+    udev \
+    v4l-utils \
+    wget \
+    zstd \
+    libusb-1.0-0-dev \
+    libhidapi-libusb0 \
+    libhidapi-dev \
+    libopencv-dev \
+    libopencv-viz-dev \
+    libegl1 \
+    libgles2 \
+    libglvnd0 \
+    libglvnd-dev \
+    libgl1-mesa-glx \
+    lsb-release \
+    gnupg2 \
+    mesa-utils \
+    ros-noetic-cv-bridge \
+    ros-noetic-diagnostic-updater \
+    ros-noetic-dynamixel-workbench-controllers \
+    ros-noetic-image-transport \
+    ros-noetic-joint-state-publisher \
+    ros-noetic-plotjuggler-ros \
+    ros-noetic-robot-state-publisher \
+    ros-noetic-ros-control \
+    ros-noetic-ros-controllers \
+    ros-noetic-rosbag \
+    ros-noetic-rosserial \
+    ros-noetic-rosserial-arduino \
+    ros-noetic-tf2-geometry-msgs \
+    ros-noetic-xacro \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and set up catkin workspace
+RUN mkdir -p /catkin_ws/src
+WORKDIR /catkin_ws
+
+# Clone ROS packages
+RUN git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench-msgs.git src/dynamixel-workbench-msgs && \
+    git clone --recursive --branch noetic-devel https://github.com/ROBOTIS-GIT/dynamixel-workbench.git src/dynamixel-workbench && \
+    git clone https://github.com/timengelbracht/gelsight_digit_ros.git src/gelsight_digit_ros && \
+    git clone https://github.com/stereolabs/zed-open-capture.git src/zed-open-capture && \
+    git clone https://github.com/timengelbracht/gripper_force_controller.git src/gripper_force_controller
+
+# Install udev rule for ZED Open Capture
+WORKDIR /catkin_ws/src/zed-open-capture/udev
+RUN bash install_udev_rule.sh
+
+# Build and install ZED Open Capture
+WORKDIR /catkin_ws/src/zed-open-capture
+RUN mkdir build && cd build && cmake .. && make -j$(nproc) && make install && ldconfig
+
+# Install Python dependencies for Gelsight
+WORKDIR /catkin_ws
+RUN pip install -r src/gelsight_digit_ros/requirements.txt
+
+# Install ZED SDK 3.8.2 for JetPack 5.0.2 (L4T 35.1.0)
+WORKDIR /tmp
+ARG L4T_MAJOR_VERSION=35
+ARG L4T_MINOR_VERSION=1
+ARG L4T_PATCH_VERSION=0
+ARG ZED_SDK_MAJOR=3
+ARG ZED_SDK_MINOR=8
+
+RUN echo "# R${L4T_MAJOR_VERSION} (release), REVISION: ${L4T_MINOR_VERSION}.${L4T_PATCH_VERSION}" > /etc/nv_tegra_release && \
+    wget -q --no-check-certificate -O ZED_SDK_Linux.run https://download.stereolabs.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/l4t${L4T_MAJOR_VERSION}.${L4T_MINOR_VERSION}/jetsons && \
+     &&chmod +x ZED_SDK_Linux.run \
+    ./ZED_SDK_Linux.run silent skip_tools skip_drivers && \
+    rm -rf /usr/local/zed/resources/* && \
+    rm -f ZED_SDK_Linux.run && \
+    rm -rf /var/lib/apt/lists/*
+
+# Link required V4L2 library
+RUN ln -sf /usr/lib/aarch64-linux-gnu/tegra/libv4l2.so.0 /usr/lib/aarch64-linux-gnu/libv4l2.so
+
+# Overwrite Dynamixel config
+COPY basic.yaml /catkin_ws/src/dynamixel-workbench/dynamixel_workbench_controllers/config/basic.yaml
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+
+# Build catkin workspace (ZED wrapper excluded for runtime build)
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && catkin build"
+
+# Final shell setup
+SHELL ["/bin/bash", "-c"]
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc && \
+    echo "source /catkin_ws/devel/setup.bash" >> ~/.bashrc
+
+# Remove default CUDA symlink to avoid mount conflicts
+RUN rm -rf /usr/local/cuda
+
+# Default container entry
+CMD ["bash"]
+

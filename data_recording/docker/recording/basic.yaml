@@ -1,0 +1,6 @@
+gripper:
+  ID: 1
+  Return_Delay_Time: 0
+  Operating_Mode: 5
+  Profile_Acceleration: 33
+  Profile_Velocity: 66
