@@ -60,6 +60,17 @@ Container"), or build via `docker/aria/docker-compose.yml`. The container's
 `hoi` package is importable on start. All Python dependencies are pinned in
 `docker/aria/Dockerfile`.
 
+## Credentials (Aria MPS)
+The `mps` stage of the extraction pipeline requests Aria Machine Perception
+Services and therefore needs **Project Aria account credentials**. They are read
+from environment variables (no credentials are stored in the repo):
+```bash
+export ARIA_USERNAME=<your-aria-account>
+export ARIA_PASSWORD=<your-aria-password>
+```
+If unset, `MPSClient` falls back to an interactive prompt. Stages that don't
+touch Aria MPS don't need them.
+
 ## Expected raw data layout
 The pipeline parses a fixed directory structure under `<base_path>/raw/`. Each
 recording file/folder is named `<location>_<interaction_range>_<recorder>`
