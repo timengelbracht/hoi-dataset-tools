@@ -1,7 +1,24 @@
 #!/usr/bin/env bash
 SESSION="gripper_recording"
 CONTAINER="gripper_recording_nano"
-RECORDING_NAME="<ENV NAME (e.g. kitchen_1)>"
+
+# Recording / environment name (e.g. kitchen_1). Pass as the first argument.
+RECORDING_NAME="${1:-recording}"
+
+# Load per-rig hardware identifiers (DIGIT ids, USB serials, tick limits, F/T bus).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "$SCRIPT_DIR/hardware.env" ]]; then
+    echo "[ERROR] $SCRIPT_DIR/hardware.env not found — edit it for your rig first." >&2
+    exit 1
+fi
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/hardware.env"
+
+# roslaunch invocation with per-rig hardware overrides (from hardware.env)
+ROSLAUNCH_CMD="roslaunch gripper_force_controller gripper_launch_single_force.launch \
+digit_left_id:=${DIGIT_LEFT_ID} digit_right_id:=${DIGIT_RIGHT_ID} \
+dxl_device:=${DXL_PORT} usb_port:=${DXL_PORT} serial_port:=${LOADCELL_PORT} \
+min_ticks:=${MIN_TICKS} max_ticks:=${MAX_TICKS} ethercat_bus:=${ETHERCAT_BUS}"
 
 # 1) Bring up the container
 docker compose up -d recording_gripper_nano
@@ -24,7 +41,7 @@ tmux send-keys -t "$SESSION":0.0 "docker exec -it $CONTAINER bash" C-m
 sleep 0.1
 tmux send-keys -t "$SESSION":0.0 "clear" C-m
 sleep 0.05
-tmux send-keys -t "$SESSION":0.0 "roslaunch gripper_force_controller gripper_launch_single_force.launch" C-m
+tmux send-keys -t "$SESSION":0.0 "$ROSLAUNCH_CMD" C-m
 
 # 5) Pane 1 (top-right) → container + clear + type recording
 tmux send-keys -t "$SESSION":0.1 "docker exec -it $CONTAINER bash" C-m
