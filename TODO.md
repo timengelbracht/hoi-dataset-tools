@@ -31,6 +31,14 @@
 - [ ] Decide fate of the non-nano compose services (`testing`, `jetson`, `rpi/light`,
       `spot_agx`, `aria`): keep as documented variants or trim.
 
+## Dev container
+- [ ] `data_processing/docker/aria/docker-compose.yml` is out of sync with
+      `.devcontainer/devcontainer.json` (missing the repo/`/data`/docker.sock
+      mounts + auto-install). The **devcontainer is authoritative**; either bring
+      the compose service up to match, make the devcontainer reference the compose
+      file as a single source of truth, or drop the compose service. Docs
+      currently point users to the devcontainer only.
+
 ## Other open items (from the release cleanup pass)
 - [ ] Delete dead dependency files: `data_processing/docker/aria/.devcontainer/Dockerfile`
       (unused duplicate nothing builds) and top-level `requirements.txt`

@@ -53,26 +53,19 @@ not used by the current pipeline** — only ORB-SLAM3 is invoked. They can be
 removed if we don't intend to revisit inertial odometry.
 
 ## Environment
-The package runs inside the **aria dev container** (`docker/aria/`). Two ways to
-launch it:
+The package runs inside the **aria dev container** (`docker/aria/`), launched as
+a **VS Code dev container**: open `docker/aria/.devcontainer` and "Reopen in
+Container". It builds `docker/aria/Dockerfile` and its `postCreateCommand` runs
+`pip install -e <repo>`, so `hoi` is importable on start. All Python
+dependencies are pinned in `docker/aria/Dockerfile`.
 
-- **VS Code dev container** (recommended): open `docker/aria/.devcontainer` and
-  "Reopen in Container". Its `postCreateCommand` runs `pip install -e <repo>`, so
-  `hoi` is importable on start.
-- **docker compose**:
-  ```bash
-  cd data_processing/docker/aria
-  docker compose up -d aria_dev
-  docker exec -it aria_dev bash
-  pip install -e /path/to/hoi-dataset-tools   # once, if not already
-  ```
+> **Note:** `docker/aria/docker-compose.yml` is a bare/minimal service (same
+> Dockerfile, but fewer mounts and no auto-install) and is **not kept in sync**
+> with the dev container. Use the VS Code dev container for the full setup.
 
-All Python dependencies are pinned in `docker/aria/Dockerfile`.
-
-### What to mount (edit for your machine)
-The mount sources in `.devcontainer/devcontainer.json` and `docker-compose.yml`
-point at the original authors' paths — **change them to yours**. What the
-container actually needs:
+### What the dev container mounts (edit sources for your machine)
+The mount sources in `.devcontainer/devcontainer.json` point at the original
+authors' paths — **change them to yours**. What the container actually needs:
 
 | mount | why |
 |---|---|
