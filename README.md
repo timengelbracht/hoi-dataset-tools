@@ -1,4 +1,20 @@
-# Hoi! Dataset Tools
+# hoi-dataset-tools
+
+Code accompanying the CVPR 2026 paper
+**[Hoi! - A Multimodal Dataset for Force-Grounded, Cross-View Articulated Manipulation](https://arxiv.org/abs/2512.04884)**.
+
+Project website: [timengelbracht.github.io/Hoi-Dataset-Website](https://timengelbracht.github.io/Hoi-Dataset-Website/).
+
+[Tim Engelbracht](https://www.linkedin.com/in/timengelbracht/)<sup>1</sup>,
+[René Zurbrügg](https://renezurbruegg.github.io/)<sup>1</sup>,
+[Matteo Wohlrapp](#)<sup>2</sup>,
+[Martin Büchner](https://rl.uni-freiburg.de/people/buechner)<sup>3</sup>,
+[Abhinav Valada](https://rl.uni-freiburg.de/people/valada)<sup>3</sup>,
+[Marc Pollefeys](https://people.inf.ethz.ch/marc.pollefeys/)<sup>1,4</sup>,
+[Hermann Blum](https://hermannblum.net/)<sup>5</sup>,
+[Zuria Bauer](https://zuriabauer.com/)<sup>1</sup>
+
+<sup>1</sup>ETH Zurich · <sup>2</sup>TU Munich · <sup>3</sup>U. Freiburg · <sup>4</sup>Microsoft · <sup>5</sup>U. Bonn
 
 Tooling to **record** and **process** the Hoi! dataset of human–object interactions,
 captured with multiple synchronized sensors (Project Aria glasses, a handheld
@@ -59,5 +75,20 @@ works end-to-end, but some cleanup is still in progress — see [`TODO.md`](TODO
 for known open items (e.g. the evaluation-tools cleanup and some machine-specific
 paths in Docker mounts). Issues and PRs welcome.
 
-## License & citation
-TODO: add a license and citation before wide distribution.
+## TODO
+- Add shopping list and assembly guide for the Hoi! Gripper.
+
+## Citation
+
+If you use this code or the Hoi! dataset, please cite:
+
+```bibtex
+@InProceedings{Engelbracht_2026_CVPR,
+    author    = {Engelbracht, Tim and Zurbrügg, René and Wohlrapp, Matteo and Büchner, Martin and Valada, Abhinav and Pollefeys, Marc and Blum, Hermann and Bauer, Zuria},
+    title     = {Hoi! - A Multimodal Dataset for Force-Grounded, Cross-View Articulated Manipulation},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2026},
+    pages     = {8880-8890}
+}
+```
