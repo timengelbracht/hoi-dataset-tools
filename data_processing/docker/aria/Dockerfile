@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     libglew-dev libtbb-dev libjsoncpp-dev libspdlog-dev libfmt-dev \
     libjpeg-dev libpng-dev libtiff-dev libxi-dev libxxf86vm-dev \
     libxcursor-dev libxinerama-dev libc++-dev libc++abi-dev clang zstd \
-    python3 python3-pip python3-dev python3-setuptools ffmpeg \
+    python3 python3-pip python3-dev python3-setuptools ffmpeg p7zip-full\
  && rm -rf /var/lib/apt/lists/*
 
 RUN ln -s /usr/bin/python3 /usr/bin/python   # handy alias
